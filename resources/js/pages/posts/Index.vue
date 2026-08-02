@@ -139,7 +139,7 @@ const getPostPreview = (post: Post): string =>
     post.content?.trim() || trans('calendar.no_content');
 
 const EDITABLE_STATUSES: readonly string[] = [PostStatus.Draft, PostStatus.Scheduled];
-const DELETABLE_STATUSES: readonly string[] = [PostStatus.Draft, PostStatus.Scheduled, PostStatus.Failed];
+const DELETABLE_STATUSES: readonly string[] = [PostStatus.Draft, PostStatus.Scheduled, PostStatus.Failed, PostStatus.Published, PostStatus.PartiallyPublished];
 const canEdit = (post: Post): boolean => EDITABLE_STATUSES.includes(post.status);
 const canDelete = (post: Post): boolean => DELETABLE_STATUSES.includes(post.status);
 

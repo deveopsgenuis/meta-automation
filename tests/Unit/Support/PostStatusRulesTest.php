@@ -26,21 +26,19 @@ test('allows editing for non terminal statuses', function (PostStatus $status) {
     PostStatus::Scheduled,
 ]);
 
-test('blocks deletion for published statuses', function (PostStatus $status) {
-    $post = Post::factory()->make(['status' => $status]);
+test('blocks deletion for publishing status', function () {
+    $post = Post::factory()->make(['status' => PostStatus::Publishing]);
 
     expect(PostStatusRules::blocksDeletion($post))->toBeTrue();
-})->with([
-    PostStatus::Publishing,
-    PostStatus::Published,
-    PostStatus::PartiallyPublished,
-]);
+});
 
-test('allows deletion for draft, scheduled and failed statuses', function (PostStatus $status) {
+test('allows deletion for published, partially published, draft, scheduled and failed statuses', function (PostStatus $status) {
     $post = Post::factory()->make(['status' => $status]);
 
     expect(PostStatusRules::blocksDeletion($post))->toBeFalse();
 })->with([
+    PostStatus::Published,
+    PostStatus::PartiallyPublished,
     PostStatus::Draft,
     PostStatus::Scheduled,
     PostStatus::Failed,

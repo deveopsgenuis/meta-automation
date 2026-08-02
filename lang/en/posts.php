@@ -560,7 +560,7 @@ return [
         'deleted' => 'Post deleted successfully!',
         'duplicated' => 'Post duplicated as a draft.',
         'cannot_edit_finalized' => 'This post has already been processed and cannot be re-published. Duplicate it to try again.',
-        'cannot_delete_published' => 'Published posts cannot be deleted.',
+        'cannot_delete_published' => 'This post is published. Deleting will also remove it from all connected social platforms.',
         'connect_first' => 'Connect at least one social network before creating a post.',
     ],
 
@@ -572,7 +572,7 @@ return [
 
     'delete' => [
         'title' => 'Delete post?',
-        'description' => 'This action can\'t be undone. The post and all its media will be permanently removed.',
+        'description' => 'This action can\'t be undone. The post and all its media will be permanently removed, and the post will be deleted from all connected social platforms.',
         'confirm' => 'Yes, delete',
         'cancel' => 'Cancel',
     ],

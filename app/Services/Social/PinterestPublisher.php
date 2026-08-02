@@ -488,4 +488,28 @@ class PinterestPublisher
     {
         throw PinterestPublishException::fromApiResponse($response);
     }
+
+    public function deletePost(string $platformPostId, string $accessToken): void
+    {
+        $response = $this->socialHttp()->withToken($accessToken)
+            ->delete("{$this->baseUrl}/pins/{$platformPostId}");
+
+        if ($response->failed()) {
+            Log::error('Pinterest delete pin failed', [
+                'status' => $response->status(),
+                'body' => $this->redactResponseBody($response->body()),
+                'pin_id' => $platformPostId,
+            ]);
+            $this->handleDeleteError($response, $platformPostId);
+        }
+    }
+
+    private function handleDeleteError(Response $response, string $postId): void
+    {
+        // If pin doesn't exist (already deleted), that's fine
+        if ($response->status() === 404) {
+            return;
+        }
+        throw PinterestPublishException::fromApiResponse($response);
+    }
 }

@@ -444,4 +444,31 @@ class TikTokPublisher
     {
         throw TikTokPublishException::fromApiResponse($response);
     }
+
+    public function deletePost(string $platformPostId, string $accessToken): void
+    {
+        $response = $this->socialHttp()->withToken($accessToken)
+            ->asJson()
+            ->post("{$this->baseUrl}/post/publish/video/delete/", [
+                'post_id' => $platformPostId,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('TikTok delete post failed', [
+                'status' => $response->status(),
+                'body' => $this->redactResponseBody($response->body()),
+                'post_id' => $platformPostId,
+            ]);
+            $this->handleDeleteError($response, $platformPostId);
+        }
+    }
+
+    private function handleDeleteError(Response $response, string $postId): void
+    {
+        // If post doesn't exist (already deleted), that's fine
+        if ($response->status() === 404) {
+            return;
+        }
+        throw TikTokPublishException::fromApiResponse($response);
+    }
 }

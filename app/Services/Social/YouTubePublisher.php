@@ -225,4 +225,27 @@ class YouTubePublisher
     {
         throw YouTubePublishException::fromGoogleException($e);
     }
+
+    public function deletePost(string $platformPostId, string $accessToken): void
+    {
+        $account = new SocialAccount;
+        $account->access_token = $accessToken;
+
+        try {
+            $client = $this->createGoogleClient($account);
+            $youtube = new YouTube($client);
+            $youtube->videos->delete($platformPostId);
+        } catch (Exception $e) {
+            // If video doesn't exist (already deleted), that's fine
+            if ($e->getCode() === 404) {
+                return;
+            }
+            Log::error('YouTube delete post failed', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+                'post_id' => $platformPostId,
+            ]);
+            throw $e;
+        }
+    }
 }

@@ -107,6 +107,9 @@ const isPublishing = computed(() => post.value.status === PostStatus.Publishing)
 const isScheduled = computed(() => post.value.status === PostStatus.Scheduled);
 const isLocked = computed(() => isReadOnly.value || isScheduled.value || !canCreatePost.value);
 
+// Allow deletion for published/partially published posts
+const canDelete = computed(() => !isPublishing.value && canCreatePost.value);
+
 // Content
 const content = ref(post.value.content || '');
 const media = ref<MediaItem[]>(post.value.media || []);
@@ -342,7 +345,7 @@ const toggleLabel = (labelId: string) => {
 };
 
 const deletePost = () => {
-    if (isReadOnly.value) return;
+    if (!canDelete.value) return;
     deleteModal.value?.open({
         url: destroyPost.url(post.value.id),
         confirmText: trans('common.confirm_modal.delete_keyword'),

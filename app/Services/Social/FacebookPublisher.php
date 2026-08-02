@@ -434,4 +434,29 @@ class FacebookPublisher
             category: ErrorCategory::ServerError,
         );
     }
+
+    public function deletePost(string $platformPostId, string $accessToken): void
+    {
+        $response = $this->facebookHttp()->delete("{$this->baseUrl}/{$platformPostId}", [
+            'access_token' => $accessToken,
+        ]);
+
+        if ($response->failed()) {
+            Log::error('Facebook delete post failed', [
+                'status' => $response->status(),
+                'body' => $this->redactResponseBody($response->body()),
+                'post_id' => $platformPostId,
+            ]);
+            $this->handleDeleteError($response, $platformPostId);
+        }
+    }
+
+    private function handleDeleteError(Response $response, string $postId): void
+    {
+        // If post doesn't exist (already deleted), that's fine
+        if ($response->status() === 404) {
+            return;
+        }
+        throw FacebookPublishException::fromApiResponse($response);
+    }
 }

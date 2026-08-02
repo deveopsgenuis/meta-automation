@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { IconArrowLeft, IconCalendar, IconExternalLink, IconFileTypePdf, IconLoader2 } from '@tabler/icons-vue';
+import { IconArrowLeft, IconCalendar, IconExternalLink, IconFileTypePdf, IconLoader2, IconTrash } from '@tabler/icons-vue';
 import { trans } from 'laravel-vue-i18n';
 import { computed, ref } from 'vue';
 
@@ -18,7 +18,8 @@ import { getPlatformStatusConfig, getPostStatusConfig } from '@/composables/useP
 import dayjs from '@/dayjs';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { classify, isDocument as isDocumentItem, isVideo as isVideoItem, MediaType } from '@/lib/mediaType';
-import { index as postsIndex } from '@/routes/app/posts';
+import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue';
+import { destroy as destroyPost } from '@/routes/app/posts';
 import type { MediaItem } from '@/types/media';
 import { PostPlatformStatus, PostStatus } from '@/types/post';
 
@@ -72,6 +73,9 @@ const isPublishing = computed(() => props.post.status === PostStatus.Publishing)
 
 const postStatus = computed(() => getPostStatusConfig(props.post.status));
 
+// Allow deletion for all statuses except Publishing
+const canDelete = computed(() => props.post.status !== PostStatus.Publishing);
+
 const pageTitle = computed(() => {
     const snippet = props.post.content?.trim().split('\n')[0]?.slice(0, 60) ?? '';
     return snippet ? `${trans('posts.show.title')} · ${snippet}${props.post.content.length > 60 ? '…' : ''}` : trans('posts.show.title');
@@ -87,6 +91,16 @@ const formatDateTime = (date: string | null): string =>
     date ? dayjs.utc(date).local().format('D MMM YYYY, HH:mm') : '';
 
 const lightbox = ref<InstanceType<typeof ImagePreviewDialog> | null>(null);
+
+const deleteModal = ref<InstanceType<typeof ConfirmDeleteModal> | null>(null);
+
+const handleDelete = () => {
+    if (!canDelete.value) return;
+    deleteModal.value?.open({
+        url: destroyPost.url(props.post.id),
+        confirmText: trans('common.confirm_modal.delete_keyword'),
+    });
+};
 
 const openLightbox = (i: number) => {
     const collection = props.post.media.map((m) => ({
@@ -146,6 +160,23 @@ usePostEcho(props.post.id, '.post.platform.status.updated', () => {
                         <component :is="postStatus.icon" class="size-3" />
                         {{ postStatus.label }}
                     </Badge>
+                    <!-- Delete button for published/partially published posts -->
+                    <TooltipProvider v-if="canDelete">
+                        <Tooltip>
+                            <TooltipTrigger as-child>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    class="bg-rose-100 hover:bg-rose-200"
+                                    @click="handleDelete"
+                                >
+                                    <IconTrash class="size-4 text-rose-700" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{{ $t('posts.edit.delete') }}</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
             </header>
 
@@ -296,4 +327,12 @@ usePostEcho(props.post.id, '.post.platform.status.updated', () => {
 
         <ImagePreviewDialog ref="lightbox" />
     </AppLayout>
+
+    <ConfirmDeleteModal
+        ref="deleteModal"
+        :title="$t('posts.delete.title')"
+        :description="$t('posts.delete.description')"
+        :action="$t('posts.delete.confirm')"
+        :cancel="$t('posts.delete.cancel')"
+    />
 </template>

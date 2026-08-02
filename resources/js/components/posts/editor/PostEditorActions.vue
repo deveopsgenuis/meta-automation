@@ -39,19 +39,20 @@ const scheduledAtError = computed(() => errors.value.scheduled_at);
 </script>
 
 <template>
-    <Button
-        v-if="isScheduled && canEdit"
-        type="button"
-        variant="outline"
-        class="bg-background hover:bg-violet-50"
-        :disabled="isSubmitting"
-        @click="emit('unschedule')"
-    >
-        {{ $t('posts.edit.unschedule_cta') }}
-    </Button>
-
-    <div v-else-if="!isReadOnly && canEdit" class="flex w-full flex-col gap-1 lg:w-auto lg:items-end">
+    <div v-if="!isReadOnly && canEdit" class="flex w-full flex-col gap-1 lg:w-auto lg:items-end">
         <div class="flex w-full items-center gap-2 lg:w-auto">
+            <!-- Unschedule button (only for scheduled posts) -->
+            <Button
+                v-if="isScheduled"
+                type="button"
+                variant="outline"
+                class="bg-background hover:bg-violet-50"
+                :disabled="isSubmitting"
+                @click="emit('unschedule')"
+            >
+                {{ $t('posts.edit.unschedule_cta') }}
+            </Button>
+
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger as-child>

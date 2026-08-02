@@ -769,4 +769,32 @@ class BlueskyPublisher
     {
         throw BlueskyPublishException::fromApiResponse($response);
     }
+
+    public function deletePost(string $platformPostId, string $accessToken, string $did, string $service): void
+    {
+        $response = $this->socialHttp()->withToken($accessToken)
+            ->post("{$service}/xrpc/".BlueskyLexicon::DELETE_RECORD, [
+                'repo' => $did,
+                'collection' => BlueskyLexicon::FEED_POST,
+                'rkey' => $platformPostId,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('Bluesky delete post failed', [
+                'status' => $response->status(),
+                'body' => $this->redactResponseBody($response->body()),
+                'post_id' => $platformPostId,
+            ]);
+            $this->handleDeleteError($response, $platformPostId);
+        }
+    }
+
+    private function handleDeleteError(Response $response, string $postId): void
+    {
+        // If post doesn't exist (already deleted), that's fine
+        if ($response->status() === 404) {
+            return;
+        }
+        throw BlueskyPublishException::fromApiResponse($response);
+    }
 }

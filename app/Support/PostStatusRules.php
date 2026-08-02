@@ -30,8 +30,6 @@ class PostStatusRules
      */
     private const DELETE_BLOCKED_STATUSES = [
         PostStatus::Publishing,
-        PostStatus::Published,
-        PostStatus::PartiallyPublished,
     ];
 
     public static function blocksEditing(Post $post): bool

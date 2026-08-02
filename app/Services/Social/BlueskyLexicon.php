@@ -44,4 +44,6 @@ final class BlueskyLexicon
     public const FACET_MENTION = 'app.bsky.richtext.facet#mention';
 
     public const FACET_TAG = 'app.bsky.richtext.facet#tag';
+
+    public const DELETE_RECORD = 'com.atproto.repo.deleteRecord';
 }

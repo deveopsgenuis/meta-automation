@@ -306,4 +306,27 @@ class DiscordPublisher
 
         return $id;
     }
+
+    public function deletePost(string $platformPostId, string $channelId): void
+    {
+        $response = $this->bot()->delete($this->endpoint($channelId)."/{$platformPostId}");
+
+        if ($response->failed()) {
+            Log::error('Discord delete message failed', [
+                'status' => $response->status(),
+                'body' => $this->redactResponseBody($response->body()),
+                'message_id' => $platformPostId,
+            ]);
+            $this->handleDeleteError($response, $platformPostId);
+        }
+    }
+
+    private function handleDeleteError(Response $response, string $postId): void
+    {
+        // If message doesn't exist (already deleted), that's fine
+        if ($response->status() === 404) {
+            return;
+        }
+        throw DiscordPublishException::fromApiResponse($response);
+    }
 }

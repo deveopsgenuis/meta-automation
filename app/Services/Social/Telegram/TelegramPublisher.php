@@ -159,4 +159,30 @@ class TelegramPublisher
     {
         throw TelegramPublishException::fromApiResponse($response);
     }
+
+    public function deletePost(string $platformPostId, string $chatId): void
+    {
+        $response = $this->call('deleteMessage', [
+            'chat_id' => $chatId,
+            'message_id' => (int) $platformPostId,
+        ]);
+
+        if ($response->failed()) {
+            Log::error('Telegram delete message failed', [
+                'status' => $response->status(),
+                'body' => $this->redactResponseBody($response->body()),
+                'message_id' => $platformPostId,
+            ]);
+            $this->handleDeleteError($response, $platformPostId);
+        }
+    }
+
+    private function handleDeleteError(Response $response, string $postId): void
+    {
+        // If message doesn't exist (already deleted), that's fine
+        if ($response->status() === 404) {
+            return;
+        }
+        throw TelegramPublishException::fromApiResponse($response);
+    }
 }
