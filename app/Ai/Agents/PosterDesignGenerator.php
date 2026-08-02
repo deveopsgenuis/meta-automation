@@ -22,6 +22,8 @@ class PosterDesignGenerator implements Agent, HasStructuredOutput
         public string $prompt = '',
         public string $systemPrompt = '',
         public bool $bulk = false,
+        public ?string $provider = null,
+        public ?string $model = null,
     ) {}
 
     public function instructions(): string
@@ -64,7 +66,7 @@ class PosterDesignGenerator implements Agent, HasStructuredOutput
 
     public function provider(): Lab
     {
-        return match (config('ai.default_for_images')) {
+        return match ($this->provider ?? config('ai.default_for_images')) {
             'gemini' => Lab::Gemini,
             'openai' => Lab::OpenAI,
             default => Lab::Gemini,
@@ -73,6 +75,6 @@ class PosterDesignGenerator implements Agent, HasStructuredOutput
 
     public function model(): string
     {
-        return (string) config('ai.default_image_model', config('ai.default_text_model'));
+        return (string) ($this->model ?? config('ai.default_image_model', config('ai.default_text_model')));
     }
 }

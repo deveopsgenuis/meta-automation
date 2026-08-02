@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Ai\Agents\PosterDesignGenerator;
 use App\Models\Workspace;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
+use Laravel\Ai\Enums\Lab;
 
 test('instructions include the provided system prompt and user prompt', function () {
     $workspace = Workspace::factory()->make();
@@ -40,4 +41,12 @@ test('bulk generation schema returns multiple images', function () {
 
     expect($schema)->toHaveKey('images');
     expect($schema)->not->toHaveKey('image');
+});
+
+test('provider and model can be overridden for the selected image backend', function () {
+    $workspace = Workspace::factory()->make();
+    $agent = new PosterDesignGenerator(workspace: $workspace, provider: 'openai', model: 'gpt-image-1');
+
+    expect($agent->provider())->toBe(Lab::OpenAI);
+    expect($agent->model())->toBe('gpt-image-1');
 });
