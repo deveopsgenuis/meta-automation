@@ -18,6 +18,7 @@ use App\Http\Controllers\App\PostAiRegenerateMediaController;
 use App\Http\Controllers\App\PostAiReviewController;
 use App\Http\Controllers\App\PostCommentController;
 use App\Http\Controllers\App\PostController;
+use App\Http\Controllers\App\PosterDesignController;
 use App\Http\Controllers\App\PostTemplateController;
 use App\Http\Controllers\App\PresenceController;
 use App\Http\Controllers\App\Settings\AccountController;
@@ -203,6 +204,7 @@ Route::middleware(['auth', EnsureAccountReady::class, EnsureHasWorkspace::class]
     Route::post('posts/{post}/media/{mediaId}/ai/regenerate', [PostAiRegenerateMediaController::class, 'regenerate'])->name('app.posts.ai.regenerate-media');
     Route::post('posts/{post}/ai/review', [PostAiReviewController::class, 'review'])->name('app.posts.ai.review');
     Route::post('posts/ai/create', [PostAiCreateController::class, 'start'])->name('app.posts.ai.create');
+    Route::post('posts/ai/poster-design', [PosterDesignController::class, 'store'])->name('app.posts.ai.poster-design');
     Route::get('posts/ai/{creationId}/loading', [PostAiCreateController::class, 'loading'])->name('app.posts.ai.loading')->whereUuid('creationId');
 
     // Post Comments

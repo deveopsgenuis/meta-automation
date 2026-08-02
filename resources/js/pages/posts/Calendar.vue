@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { IconChevronLeft, IconChevronRight, IconPlus } from '@tabler/icons-vue';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import DatePicker from '@/components/DatePicker.vue';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getPlatformLabel, getPlatformLogo } from '@/composables/usePlatformLogo';
 import { useWorkspaceRole } from '@/composables/useWorkspaceRole';
@@ -51,10 +54,16 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const page = usePage();
 
 // Mobile detection
 const isMobile = ref(false);
 const { canCreatePost } = useWorkspaceRole();
+const posterDialogOpen = ref(false);
+const posterPrompt = ref('');
+const posterSystemPrompt = ref('');
+const posterMode = ref<'single' | 'bulk'>('single');
+const posterSubmitting = ref(false);
 
 const createPostUrl = (isoDate: string | null = null) =>
     isoDate ? createPost.url({ query: { date: isoDate } }) : createPost.url();
@@ -245,6 +254,45 @@ const getPostUrl = (post: Post): string => {
 const formatTime = (scheduledAt: string): string => {
     return date.formatTime(scheduledAt) || '';
 };
+
+const openPosterDialog = () => {
+    posterPrompt.value = '';
+    posterSystemPrompt.value = '';
+    posterMode.value = 'single';
+    posterDialogOpen.value = true;
+};
+
+const submitPosterRequest = async () => {
+    if (!posterPrompt.value.trim()) {
+        return;
+    }
+
+    posterSubmitting.value = true;
+
+    try {
+        const response = await fetch('/posts/ai/poster-design', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': (page.props as Record<string, unknown>).csrf_token as string ?? '',
+            },
+            body: JSON.stringify({
+                prompt: posterPrompt.value.trim(),
+                system_prompt: posterSystemPrompt.value.trim(),
+                bulk: posterMode.value === 'bulk',
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Request failed');
+        }
+
+        posterDialogOpen.value = false;
+    } finally {
+        posterSubmitting.value = false;
+    }
+};
 </script>
 
 <template>
@@ -271,9 +319,12 @@ const formatTime = (scheduledAt: string): string => {
                         <DatePicker v-model="selectedDate" :show-time="false" @update:model-value="(v: any) => goToDate(v)" />
                     </div>
                 </div>
-                <Link v-if="canCreatePost" :href="createPost.url()" class="block">
-                    <Button class="w-full">{{ $t('calendar.new_post') }}</Button>
-                </Link>
+                <div v-if="canCreatePost" class="flex flex-col gap-2">
+                    <Button class="w-full" @click="openPosterDialog">{{ $t('calendar.new_poster') }}</Button>
+                    <Link :href="createPost.url()" class="block">
+                        <Button class="w-full">{{ $t('calendar.new_post') }}</Button>
+                    </Link>
+                </div>
             </header>
 
             <!-- Desktop header: nav · title · view switcher + new post -->
@@ -303,11 +354,76 @@ const formatTime = (scheduledAt: string): string => {
                         </TabsList>
                     </Tabs>
 
-                    <Link v-if="canCreatePost" :href="createPost.url()">
-                        <Button>{{ $t('calendar.new_post') }}</Button>
-                    </Link>
+                    <div v-if="canCreatePost" class="flex items-center gap-2">
+                        <Button variant="outline" @click="openPosterDialog">{{ $t('calendar.new_poster') }}</Button>
+                        <Link :href="createPost.url()">
+                            <Button>{{ $t('calendar.new_post') }}</Button>
+                        </Link>
+                    </div>
                 </div>
             </header>
+
+            <Dialog v-model:open="posterDialogOpen">
+                <DialogContent class="sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>{{ $t('calendar.poster_dialog.title') }}</DialogTitle>
+                        <DialogDescription>{{ $t('calendar.poster_dialog.description') }}</DialogDescription>
+                    </DialogHeader>
+
+                    <div class="space-y-4">
+                        <div class="grid gap-2">
+                            <Label for="poster-design-prompt">{{ $t('calendar.poster_dialog.prompt_label') }}</Label>
+                            <Textarea
+                                id="poster-design-prompt"
+                                v-model="posterPrompt"
+                                :placeholder="$t('calendar.poster_dialog.prompt_placeholder')"
+                                rows="4"
+                            />
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label for="poster-design-system-prompt">{{ $t('calendar.poster_dialog.system_prompt_label') }}</Label>
+                            <Textarea
+                                id="poster-design-system-prompt"
+                                v-model="posterSystemPrompt"
+                                :placeholder="$t('calendar.poster_dialog.system_prompt_placeholder')"
+                                rows="4"
+                            />
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label>{{ $t('calendar.poster_dialog.mode_label') }}</Label>
+                            <div class="flex flex-wrap gap-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    :class="posterMode === 'single' ? 'bg-foreground text-background' : ''"
+                                    @click="posterMode = 'single'"
+                                >
+                                    {{ $t('calendar.poster_dialog.single') }}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    :class="posterMode === 'bulk' ? 'bg-foreground text-background' : ''"
+                                    @click="posterMode = 'bulk'"
+                                >
+                                    {{ $t('calendar.poster_dialog.bulk') }}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button :loading="posterSubmitting" :disabled="!posterPrompt.trim()" @click="submitPosterRequest">
+                            {{ $t('calendar.poster_dialog.submit') }}
+                        </Button>
+                        <Button variant="outline" @click="posterDialogOpen = false">
+                            {{ $t('calendar.poster_dialog.cancel') }}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <!-- Day View (mobile or when view=day) -->
             <div v-if="effectiveView === 'day'" class="flex-1 overflow-y-auto">
