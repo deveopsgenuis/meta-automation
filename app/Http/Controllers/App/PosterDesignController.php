@@ -39,17 +39,8 @@ class PosterDesignController extends Controller
 
     private function runAgent(PosterDesignGenerator $agent, string $prompt): mixed
     {
-        if (method_exists($agent, 'respond')) {
-            return $agent->respond($prompt);
-        }
-
-        foreach (['run', 'ask', 'generate', 'execute'] as $method) {
-            if (method_exists($agent, $method)) {
-                return $agent->{$method}($prompt);
-            }
-        }
-
-        throw new RuntimeException('The poster design agent does not expose a supported execution method.');
+        // Promptable trait provides the `prompt()` method
+        return $agent->prompt($prompt);
     }
 
     private function normalizeResponse(mixed $response): array

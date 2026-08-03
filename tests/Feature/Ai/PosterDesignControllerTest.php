@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Ai\Agents\PosterDesignGenerator;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Support\Facades\Bus;
@@ -26,7 +27,22 @@ test('endpoint validates prompt and allows optional system prompt', function () 
 });
 
 test('endpoint returns a structured response payload', function () {
-    Bus::fake();
+    PosterDesignGenerator::fake([
+        'images' => [
+            [
+                'title' => 'Launch Poster',
+                'description' => 'A bold cinematic poster',
+                'prompt' => 'Detailed prompt for image generation',
+                'style' => 'cinematic',
+            ],
+            [
+                'title' => 'Alternate Poster',
+                'description' => 'A minimalist alternate',
+                'prompt' => 'Detailed prompt for second image',
+                'style' => 'minimalist',
+            ],
+        ],
+    ]);
 
     $this->actingAs($this->user)
         ->postJson(route('app.posts.ai.poster-design'), [
@@ -35,5 +51,9 @@ test('endpoint returns a structured response payload', function () {
             'bulk' => true,
         ])
         ->assertStatus(Response::HTTP_OK)
-        ->assertJsonStructure(['image', 'style']);
+        ->assertJsonStructure([
+            'images' => [
+                '*' => ['title', 'description', 'prompt', 'style'],
+            ],
+        ]);
 });

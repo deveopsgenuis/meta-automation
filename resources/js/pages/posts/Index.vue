@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, InfiniteScroll, Link, router } from '@inertiajs/vue3';
+import { Head, InfiniteScroll, Link, router, usePage } from '@inertiajs/vue3';
 import { IconCopy, IconCopyPlus, IconDots, IconFileText, IconSearch, IconTrash } from '@tabler/icons-vue';
 import { trans } from 'laravel-vue-i18n';
 import { computed, ref, watch } from 'vue';
@@ -13,6 +13,14 @@ import PageHeader from '@/components/PageHeader.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -20,6 +28,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Table,
     TableBody,
@@ -29,6 +38,7 @@ import {
     TableLoadMore,
     TableRow,
 } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useWorkspaceEcho } from '@/composables/echo/useWorkspaceEcho';
 import { getPlatformLabel, getPlatformLogo } from '@/composables/usePlatformLogo';
@@ -145,6 +155,53 @@ const canDelete = (post: Post): boolean => DELETABLE_STATUSES.includes(post.stat
 
 const { canCreatePost } = useWorkspaceRole();
 
+const posterDialogOpen = ref(false);
+const posterPrompt = ref('');
+const posterSystemPrompt = ref('');
+const posterMode = ref<'single' | 'bulk'>('single');
+const posterSubmitting = ref(false);
+
+const page = usePage();
+
+const openPosterDialog = () => {
+    posterPrompt.value = '';
+    posterSystemPrompt.value = '';
+    posterMode.value = 'single';
+    posterDialogOpen.value = true;
+};
+
+const submitPosterRequest = async () => {
+    if (!posterPrompt.value.trim()) {
+        return;
+    }
+
+    posterSubmitting.value = true;
+
+    try {
+        const response = await fetch('/posts/ai/poster-design', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': (page.props as Record<string, unknown>).csrf_token as string ?? '',
+            },
+            body: JSON.stringify({
+                prompt: posterPrompt.value.trim(),
+                system_prompt: posterSystemPrompt.value.trim(),
+                bulk: posterMode.value === 'bulk',
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Request failed');
+        }
+
+        posterDialogOpen.value = false;
+    } finally {
+        posterSubmitting.value = false;
+    }
+};
+
 const postUrl = (post: Post): string =>
     canEdit(post) ? editPost.url(post.id) : showPost.url(post.id);
 
@@ -197,9 +254,14 @@ useWorkspaceEcho(
                     <LabelFilter v-if="labels.length" v-model="selectedLabelIds" :labels="labels" />
                 </div>
 
-                <Link v-if="canCreatePost" :href="createPost.url()" class="w-full sm:w-auto">
-                    <Button class="w-full sm:w-auto">{{ $t('posts.new_post') }}</Button>
-                </Link>
+                <div v-if="canCreatePost" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Link :href="createPost.url()" class="w-full sm:w-auto">
+                        <Button class="w-full sm:w-auto">{{ $t('posts.new_post') }}</Button>
+                    </Link>
+                    <Button variant="outline" @click="openPosterDialog" class="w-full sm:w-auto">
+                        {{ $t('calendar.new_poster') }}
+                    </Button>
+                </div>
             </div>
 
             <EmptyState
@@ -340,5 +402,67 @@ useWorkspaceEcho(
         :action="$t('posts.edit.delete_modal.action')"
         :cancel="$t('posts.edit.delete_modal.cancel')"
     />
+
+    <Dialog v-model:open="posterDialogOpen">
+        <DialogContent class="sm:max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>{{ $t('calendar.poster_dialog.title') }}</DialogTitle>
+                <DialogDescription>{{ $t('calendar.poster_dialog.description') }}</DialogDescription>
+            </DialogHeader>
+
+            <div class="space-y-4">
+                <div class="grid gap-2">
+                    <Label for="poster-design-prompt">{{ $t('calendar.poster_dialog.prompt_label') }}</Label>
+                    <Textarea
+                        id="poster-design-prompt"
+                        v-model="posterPrompt"
+                        :placeholder="$t('calendar.poster_dialog.prompt_placeholder')"
+                        rows="4"
+                    />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="poster-design-system-prompt">{{ $t('calendar.poster_dialog.system_prompt_label') }}</Label>
+                    <Textarea
+                        id="poster-design-system-prompt"
+                        v-model="posterSystemPrompt"
+                        :placeholder="$t('calendar.poster_dialog.system_prompt_placeholder')"
+                        rows="4"
+                    />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label>{{ $t('calendar.poster_dialog.mode_label') }}</Label>
+                    <div class="flex flex-wrap gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            :class="posterMode === 'single' ? 'bg-foreground text-background' : ''"
+                            @click="posterMode = 'single'"
+                        >
+                            {{ $t('calendar.poster_dialog.single') }}
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            :class="posterMode === 'bulk' ? 'bg-foreground text-background' : ''"
+                            @click="posterMode = 'bulk'"
+                        >
+                            {{ $t('calendar.poster_dialog.bulk') }}
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            <DialogFooter>
+                <Button :loading="posterSubmitting" :disabled="!posterPrompt.trim()" @click="submitPosterRequest">
+                    {{ $t('calendar.poster_dialog.submit') }}
+                </Button>
+                <Button variant="outline" @click="posterDialogOpen = false">
+                    {{ $t('calendar.poster_dialog.cancel') }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 
 </template>
