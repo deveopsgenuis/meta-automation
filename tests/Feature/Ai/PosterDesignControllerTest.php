@@ -26,7 +26,7 @@ test('endpoint validates prompt and allows optional system prompt', function () 
         ->assertJsonValidationErrors(['prompt']);
 });
 
-test('endpoint returns a structured response payload', function () {
+test('bulk requests return each item with its original id', function () {
     PosterDesignGenerator::fake([
         'images' => [
             [
@@ -46,14 +46,22 @@ test('endpoint returns a structured response payload', function () {
 
     $this->actingAs($this->user)
         ->postJson(route('app.posts.ai.poster-design'), [
-            'prompt' => 'Design a launch poster',
-            'system_prompt' => 'Keep it cinematic',
             'bulk' => true,
+            'prompts' => [
+                ['id' => 'alpha', 'prompt' => 'Design a launch poster'],
+                ['id' => 'beta', 'prompt' => 'Design a follow-up poster'],
+            ],
+            'system_prompt' => 'Keep it cinematic',
         ])
         ->assertStatus(Response::HTTP_OK)
         ->assertJsonStructure([
-            'images' => [
-                '*' => ['title', 'description', 'prompt', 'style'],
+            'items' => [
+                '*' => [
+                    'id',
+                    'result' => ['images' => ['*' => ['title', 'description', 'prompt', 'style']]],
+                ],
             ],
-        ]);
+        ])
+        ->assertJsonPath('items.0.id', 'alpha')
+        ->assertJsonPath('items.1.id', 'beta');
 });

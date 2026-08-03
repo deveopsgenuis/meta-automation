@@ -24,15 +24,44 @@ class PosterDesignController extends Controller
             return response()->json(['message' => $gate->message()], Response::HTTP_PAYMENT_REQUIRED);
         }
 
+        $bulk = $request->boolean('bulk', false);
+        $systemPrompt = $request->string('system_prompt')->toString();
+        $provider = $request->string('provider')->toString() ?: null;
+
+        if ($bulk) {
+            $items = [];
+
+            foreach ((array) $request->input('prompts', []) as $item) {
+                $prompt = (string) data_get($item, 'prompt', '');
+                $id = (string) data_get($item, 'id', '');
+
+                $agent = new PosterDesignGenerator(
+                    workspace: $workspace,
+                    prompt: $prompt,
+                    systemPrompt: $systemPrompt,
+                    bulk: true,
+                    provider: $provider,
+                );
+
+                $items[] = [
+                    'id' => $id,
+                    'result' => $this->normalizeResponse($this->runAgent($agent, $prompt)),
+                ];
+            }
+
+            return response()->json(['items' => $items], Response::HTTP_OK);
+        }
+
+        $prompt = $request->string('prompt')->toString();
         $agent = new PosterDesignGenerator(
             workspace: $workspace,
-            prompt: $request->string('prompt')->toString(),
-            systemPrompt: $request->string('system_prompt')->toString(),
-            bulk: $request->boolean('bulk', false),
-            provider: $request->string('provider')->toString() ?: null,
+            prompt: $prompt,
+            systemPrompt: $systemPrompt,
+            bulk: false,
+            provider: $provider,
         );
 
-        $response = $this->runAgent($agent, $request->string('prompt')->toString());
+        $response = $this->runAgent($agent, $prompt);
 
         return response()->json($this->normalizeResponse($response), Response::HTTP_OK);
     }

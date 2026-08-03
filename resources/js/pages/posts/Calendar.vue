@@ -4,11 +4,9 @@ import { IconChevronLeft, IconChevronRight, IconPlus } from '@tabler/icons-vue';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import DatePicker from '@/components/DatePicker.vue';
+import PosterDesignDialog from '@/components/posts/PosterDesignDialog.vue';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getPlatformLabel, getPlatformLogo } from '@/composables/usePlatformLogo';
 import { useWorkspaceRole } from '@/composables/useWorkspaceRole';
@@ -262,14 +260,29 @@ const openPosterDialog = () => {
     posterDialogOpen.value = true;
 };
 
-const submitPosterRequest = async () => {
-    if (!posterPrompt.value.trim()) {
+const submitPosterRequest = async ({ prompt, systemPrompt, mode }: { prompt: string; systemPrompt: string; mode: 'single' | 'bulk' }) => {
+    if (!prompt.trim()) {
         return;
     }
 
     posterSubmitting.value = true;
 
     try {
+        const payload = mode === 'bulk'
+            ? {
+                bulk: true,
+                prompts: [{
+                    id: '1',
+                    prompt: prompt.trim(),
+                }],
+                system_prompt: systemPrompt.trim(),
+            }
+            : {
+                prompt: prompt.trim(),
+                system_prompt: systemPrompt.trim(),
+                bulk: false,
+            };
+
         const response = await fetch('/posts/ai/poster-design', {
             method: 'POST',
             headers: {
@@ -277,11 +290,7 @@ const submitPosterRequest = async () => {
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRF-TOKEN': (page.props as Record<string, unknown>).csrf_token as string ?? '',
             },
-            body: JSON.stringify({
-                prompt: posterPrompt.value.trim(),
-                system_prompt: posterSystemPrompt.value.trim(),
-                bulk: posterMode.value === 'bulk',
-            }),
+            body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
@@ -363,67 +372,14 @@ const submitPosterRequest = async () => {
                 </div>
             </header>
 
-            <Dialog v-model:open="posterDialogOpen">
-                <DialogContent class="sm:max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>{{ $t('calendar.poster_dialog.title') }}</DialogTitle>
-                        <DialogDescription>{{ $t('calendar.poster_dialog.description') }}</DialogDescription>
-                    </DialogHeader>
-
-                    <div class="space-y-4">
-                        <div class="grid gap-2">
-                            <Label for="poster-design-prompt">{{ $t('calendar.poster_dialog.prompt_label') }}</Label>
-                            <Textarea
-                                id="poster-design-prompt"
-                                v-model="posterPrompt"
-                                :placeholder="$t('calendar.poster_dialog.prompt_placeholder')"
-                                rows="4"
-                            />
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label for="poster-design-system-prompt">{{ $t('calendar.poster_dialog.system_prompt_label') }}</Label>
-                            <Textarea
-                                id="poster-design-system-prompt"
-                                v-model="posterSystemPrompt"
-                                :placeholder="$t('calendar.poster_dialog.system_prompt_placeholder')"
-                                rows="4"
-                            />
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label>{{ $t('calendar.poster_dialog.mode_label') }}</Label>
-                            <div class="flex flex-wrap gap-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    :class="posterMode === 'single' ? 'bg-foreground text-background' : ''"
-                                    @click="posterMode = 'single'"
-                                >
-                                    {{ $t('calendar.poster_dialog.single') }}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    :class="posterMode === 'bulk' ? 'bg-foreground text-background' : ''"
-                                    @click="posterMode = 'bulk'"
-                                >
-                                    {{ $t('calendar.poster_dialog.bulk') }}
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button :loading="posterSubmitting" :disabled="!posterPrompt.trim()" @click="submitPosterRequest">
-                            {{ $t('calendar.poster_dialog.submit') }}
-                        </Button>
-                        <Button variant="outline" @click="posterDialogOpen = false">
-                            {{ $t('calendar.poster_dialog.cancel') }}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <PosterDesignDialog
+                v-model="posterDialogOpen"
+                :submitting="posterSubmitting"
+                :prompt="posterPrompt"
+                :system-prompt="posterSystemPrompt"
+                :mode="posterMode"
+                @submit="submitPosterRequest"
+            />
 
             <!-- Day View (mobile or when view=day) -->
             <div v-if="effectiveView === 'day'" class="flex-1 overflow-y-auto">
