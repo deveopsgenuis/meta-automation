@@ -4,7 +4,7 @@ import { IconChevronLeft, IconChevronRight, IconPlus } from '@tabler/icons-vue';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import DatePicker from '@/components/DatePicker.vue';
-import PosterDesignDialog from '@/components/posts/PosterDesignDialog.vue';
+import PosterBatchDialog from '@/components/posts/PosterBatchDialog.vue';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -42,6 +42,38 @@ interface Workspace {
     name: string;
 }
 
+interface SocialAccount {
+    id: string;
+    platform: string;
+    display_name: string;
+    username?: string | null;
+    avatar_url?: string | null;
+}
+
+interface ActiveBatchItem {
+    id: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    post_id?: string | null;
+    image_url?: string | null;
+    error?: string | null;
+    plan_data: {
+        post_description: string;
+        post_hashtags: string;
+        post_visual_prompt: string;
+        poster_size: string;
+        scheduled_date: string;
+    };
+}
+
+interface ActiveBatch {
+    id: string;
+    status: 'pending' | 'generating' | 'completed' | 'failed';
+    total_items: number;
+    completed_items: number;
+    failed_items: number;
+    items?: ActiveBatchItem[];
+}
+
 interface Props {
     workspace: Workspace;
     posts: Record<string, Post[]>;
@@ -49,6 +81,8 @@ interface Props {
     currentWeekStart: string;
     currentMonth: string;
     view: 'day' | 'week' | 'month';
+    socialAccounts?: SocialAccount[];
+    activeBatch?: ActiveBatch | null;
 }
 
 const props = defineProps<Props>();
@@ -58,12 +92,22 @@ const page = usePage();
 const isMobile = ref(false);
 const { canCreatePost } = useWorkspaceRole();
 const posterDialogOpen = ref(false);
-const posterPrompt = ref('');
-const posterSystemPrompt = ref('');
-const posterMode = ref<'single' | 'bulk'>('single');
-const posterSubmitting = ref(false);
 
-const createPostUrl = (isoDate: string | null = null) =>
+const calculatedTotalPosts = computed(() => {
+    if (effectiveView.value === 'day') return 1;
+    if (effectiveView.value === 'month') return dayjs(props.currentMonth).daysInMonth();
+    return 7;
+});
+
+const calculatedStartDate = computed(() => {
+    if (effectiveView.value === 'day') return props.currentDay;
+    if (effectiveView.value === 'month') return dayjs(props.currentMonth).startOfMonth().format('YYYY-MM-DD');
+    return props.currentWeekStart;
+});
+
+const openPosterDialog = () => {
+    posterDialogOpen.value = true;
+};
     isoDate ? createPost.url({ query: { date: isoDate } }) : createPost.url();
 const checkMobile = () => {
     isMobile.value = window.innerWidth < 1024;
@@ -253,55 +297,7 @@ const formatTime = (scheduledAt: string): string => {
     return date.formatTime(scheduledAt) || '';
 };
 
-const openPosterDialog = () => {
-    posterPrompt.value = '';
-    posterSystemPrompt.value = '';
-    posterMode.value = 'single';
-    posterDialogOpen.value = true;
-};
 
-const submitPosterRequest = async ({ prompt, systemPrompt, mode }: { prompt: string; systemPrompt: string; mode: 'single' | 'bulk' }) => {
-    if (!prompt.trim()) {
-        return;
-    }
-
-    posterSubmitting.value = true;
-
-    try {
-        const payload = mode === 'bulk'
-            ? {
-                bulk: true,
-                prompts: [{
-                    id: '1',
-                    prompt: prompt.trim(),
-                }],
-                system_prompt: systemPrompt.trim(),
-            }
-            : {
-                prompt: prompt.trim(),
-                system_prompt: systemPrompt.trim(),
-                bulk: false,
-            };
-
-        const response = await fetch('/posts/ai/poster-design', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': (page.props as Record<string, unknown>).csrf_token as string ?? '',
-            },
-            body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-            throw new Error('Request failed');
-        }
-
-        posterDialogOpen.value = false;
-    } finally {
-        posterSubmitting.value = false;
-    }
-};
 </script>
 
 <template>
@@ -372,13 +368,12 @@ const submitPosterRequest = async ({ prompt, systemPrompt, mode }: { prompt: str
                 </div>
             </header>
 
-            <PosterDesignDialog
+            <PosterBatchDialog
                 v-model="posterDialogOpen"
-                :submitting="posterSubmitting"
-                :prompt="posterPrompt"
-                :system-prompt="posterSystemPrompt"
-                :mode="posterMode"
-                @submit="submitPosterRequest"
+                :total-posts="calculatedTotalPosts"
+                :start-date="calculatedStartDate"
+                :social-accounts="socialAccounts"
+                :active-batch="activeBatch"
             />
 
             <!-- Day View (mobile or when view=day) -->

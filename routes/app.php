@@ -18,6 +18,7 @@ use App\Http\Controllers\App\PostAiRegenerateMediaController;
 use App\Http\Controllers\App\PostAiReviewController;
 use App\Http\Controllers\App\PostCommentController;
 use App\Http\Controllers\App\PostController;
+use App\Http\Controllers\App\Ai\PostPlanController;
 use App\Http\Controllers\App\PosterDesignController;
 use App\Http\Controllers\App\PostTemplateController;
 use App\Http\Controllers\App\PresenceController;
@@ -205,6 +206,10 @@ Route::middleware(['auth', EnsureAccountReady::class, EnsureHasWorkspace::class]
     Route::post('posts/{post}/ai/review', [PostAiReviewController::class, 'review'])->name('app.posts.ai.review');
     Route::post('posts/ai/create', [PostAiCreateController::class, 'start'])->name('app.posts.ai.create');
     Route::post('posts/ai/poster-design', [PosterDesignController::class, 'store'])->name('app.posts.ai.poster-design');
+    Route::post('posts/ai/plan/generate', [PostPlanController::class, 'generate'])->name('app.posts.ai.plan.generate');
+    Route::post('posts/ai/plan/execute', [PostPlanController::class, 'execute'])->name('app.posts.ai.plan.execute');
+    Route::get('posts/ai/plan/batch/{posterBatch}', [PostPlanController::class, 'show'])->name('app.posts.ai.plan.batch');
+    Route::post('posts/ai/plan/batch/{posterBatchItem}/retry', [PostPlanController::class, 'retryItem'])->name('app.posts.ai.plan.batch.retry');
     Route::get('posts/ai/{creationId}/loading', [PostAiCreateController::class, 'loading'])->name('app.posts.ai.loading')->whereUuid('creationId');
 
     // Post Comments
