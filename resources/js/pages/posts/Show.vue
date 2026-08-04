@@ -19,7 +19,7 @@ import dayjs from '@/dayjs';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { classify, isDocument as isDocumentItem, isVideo as isVideoItem, MediaType } from '@/lib/mediaType';
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue';
-import { destroy as destroyPost } from '@/routes/app/posts';
+import { destroy as destroyPost, index as postsIndex } from '@/routes/app/posts';
 import type { MediaItem } from '@/types/media';
 import { PostPlatformStatus, PostStatus } from '@/types/post';
 
