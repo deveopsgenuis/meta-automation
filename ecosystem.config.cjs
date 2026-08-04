@@ -20,7 +20,7 @@ module.exports = {
     {
       name: 'meta-automation-queue',
       script: '/usr/bin/php8.4',
-      args: 'artisan queue:work --queue=default,social-facebook,social-x,social-linkedin,social-linkedin-page,social-instagram,social-instagram-facebook,social-tiktok,social-youtube,social-threads,social-pinterest,social-bluesky,social-mastodon,social-telegram,social-discord,posts --tries=3 --timeout=600 --sleep=3',
+      args: 'artisan queue:work --queue=ai,default,social-facebook,social-x,social-linkedin,social-linkedin-page,social-instagram,social-instagram-facebook,social-tiktok,social-youtube,social-threads,social-pinterest,social-bluesky,social-mastodon,social-telegram,social-discord,posts --tries=3 --timeout=600 --sleep=3',
       cwd: '/home/agent-pyris/projects/meta-automation',
       instances: 2,
       exec_mode: 'fork',

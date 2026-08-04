@@ -122,16 +122,27 @@ class GeneratePosterBatchItem implements ShouldQueue
         // Attach image to media collection
         $mediaItem = null;
         if ($imagePath && Storage::disk('public')->exists($imagePath)) {
-            $mediaRecord = Media::query()->create([
-                'workspace_id' => $workspace->id,
-                'collection' => 'ai-generated',
-                'type' => MediaType::Image,
-                'path' => $imagePath,
-                'original_filename' => basename($imagePath),
-                'mime_type' => 'image/png',
-                'size' => Storage::disk('public')->size($imagePath),
-                'order' => 0,
-            ]);
+            try {
+                $mediaRecord = $workspace->addMediaFromStoredPath(
+                    storagePath: $imagePath,
+                    originalFilename: basename($imagePath),
+                    mimeType: 'image/png',
+                    size: Storage::disk('public')->size($imagePath),
+                    collection: 'ai-generated',
+                    meta: ['source' => Source::Ai->value],
+                );
+
+                Log::info('GeneratePosterBatchItem: Media created', [
+                    'media_id' => $mediaRecord->id,
+                    'image_path' => $imagePath,
+                ]);
+            } catch (Throwable $e) {
+                Log::error('GeneratePosterBatchItem: Media creation failed', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                throw $e;
+            }
 
             $mediaItem = [
                 'id' => $mediaRecord->id,
@@ -160,13 +171,32 @@ class GeneratePosterBatchItem implements ShouldQueue
             ];
         }
 
+        Log::info('GeneratePosterBatchItem: Creating post', [
+            'item_id' => $item->id,
+            'post_data' => $postData,
+        ]);
+
         $post = CreatePost::execute($workspace, $user, $postData);
+
+        Log::info('GeneratePosterBatchItem: Post created', [
+            'post_id' => $post->id,
+        ]);
+
         $post->update(['status' => PostStatus::Scheduled]);
+
+        Log::info('GeneratePosterBatchItem: Post status updated to scheduled', [
+            'post_id' => $post->id,
+        ]);
 
         $item->update([
             'status' => 'completed',
             'post_id' => $post->id,
             'image_path' => $imagePath,
+        ]);
+
+        Log::info('GeneratePosterBatchItem: Item updated', [
+            'item_id' => $item->id,
+            'status' => 'completed',
         ]);
 
         $batch->increment('completed_items');

@@ -17,7 +17,7 @@ class PostResource extends JsonResource
         return [
             'id' => $this->id,
             'content' => $this->content,
-            'media' => $this->media,
+            'media' => $this->media_items,
             'status' => $this->status?->value,
             'scheduled_at' => $this->scheduled_at?->format('Y-m-d H:i:s'),
             'published_at' => $this->published_at?->format('Y-m-d H:i:s'),

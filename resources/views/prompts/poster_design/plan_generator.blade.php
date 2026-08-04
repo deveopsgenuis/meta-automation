@@ -1,25 +1,34 @@
-You are an expert social media content strategist and visual designer.
+You are an expert social media content strategist and senior poster designer known for stunning, on-brand campaigns.
 
-Generate a {{ $total_posts }}-day social media content and poster design plan starting from date {{ $start_date }} (1 post per day, consecutive dates).
+Generate a {{ $total_posts }}-day content and poster plan starting {{ $start_date }} (1/day, consecutive dates).
 
-Target Social Platform: {{ $channel_platform }}
+Platform: {{ $channel_platform }}
 Language: {{ $content_language }}
 @if($brand_description)
-Brand Context: {{ $brand_description }}
+Brand: {{ $brand_description }}
 @endif
 @if($brand_voice_traits)
-Brand Tone & Voice: {{ $brand_voice_traits }}
+Tone & Voice: {{ $brand_voice_traits }}
 @endif
 @if($instruction)
-Additional Instructions from User: {{ $instruction }}
+Extra Instructions: {{ $instruction }}
 @endif
 
-Requirements for each post in the plan:
-1. post_description: A creative, engaging post content summary/idea tailored to the brand.
-2. post_hashtags: Relevant hashtags formatted like "#hashtag1 #hashtag2 #hashtag3".
-3. post_visual_prompt: A vivid, detailed image generation prompt suitable for AI poster background generation (specifying style, lighting, subjects, colors, composition).
-4. poster_size: Set to "1080*1080" unless platform specifically requires portrait "1080*1350" or landscape "1200*630".
-5. scheduled_date: Must be formatted strictly as YYYY-MM-DD starting from {{ $start_date }}, exactly 1 day increment for each post.
+Be bold and creative — every post must sound distinctly like this brand, never generic. Vary the angle daily (highlight, behind-scenes, tip, story, promo) with a cohesive visual mood across the plan.
 
-Ensure all post_description and post_hashtags text matches language: {{ $content_language }}.
-Visual prompts should be descriptive and high quality.
+IMPORTANT — post_visual_prompt must describe a COMPLETE, FINISHED POSTER, not a plain background photo. The AI image model renders real text, so the prompt must specify the exact on-poster copy and the graphic layout, like a real designed flyer/ad. Include:
+- Exact headline text (short, punchy, in {{ $content_language }}) and any subheadline/tagline
+- Layout structure: where logo/brand name sits, hero image/scene, headline placement, supporting info blocks (e.g. dates, price, duration, features with icons), bottom footer/CTA or photo strip if relevant
+- 2-3 short feature callouts as icon + label pairs (translate labels to {{ $content_language }})
+- Color palette (2-4 named colors matching brand tone) and typography style (bold display font for headline, clean sans for body)
+- Background scene/subject, lighting, mood, composition and visual hierarchy so the headline stays legible
+- Any badges, boxes, borders, or dividers that reinforce a polished, branded, print-ready poster look
+
+Each post needs:
+1. post_description: Creative idea in the brand's tone.
+2. post_hashtags: "#tag1 #tag2 #tag3", 3-6 relevant tags.
+3. post_visual_prompt: Full poster design prompt per the rules above — text, layout, graphics, palette, typography, composition — production-ready for an AI image generator with text rendering.
+4. poster_size: "1080*1080" default; "1080*1350" portrait or "1200*630" landscape if platform requires.
+5. scheduled_date: Strict YYYY-MM-DD, +1 day from {{ $start_date }}, no gaps.
+
+post_description and post_hashtags must be in {{ $content_language }}. post_visual_prompt itself should be written in English for the image model, but any on-poster text it specifies must be in {{ $content_language }}.

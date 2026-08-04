@@ -101,14 +101,18 @@ const calculatedTotalPosts = computed(() => {
 
 const calculatedStartDate = computed(() => {
     if (effectiveView.value === 'day') return props.currentDay;
-    if (effectiveView.value === 'month') return dayjs(props.currentMonth).startOfMonth().format('YYYY-MM-DD');
+    if (effectiveView.value === 'month') return dayjs(props.currentMonth).startOf('month').format('YYYY-MM-DD');
     return props.currentWeekStart;
 });
 
 const openPosterDialog = () => {
     posterDialogOpen.value = true;
 };
-    isoDate ? createPost.url({ query: { date: isoDate } }) : createPost.url();
+
+const createPostUrl = (dateStr: string): string => {
+    return createPost.url({ query: { date: dateStr } });
+};
+
 const checkMobile = () => {
     isMobile.value = window.innerWidth < 1024;
 };

@@ -16,6 +16,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { generate, execute, batch } from '@/routes/app/posts/ai/plan';
+import { retry } from '@/routes/app/posts/ai/plan/batch';
 
 interface SocialAccount {
     id: string;
@@ -172,7 +174,7 @@ const generatePlan = async () => {
     errorMessage.value = null;
 
     try {
-        const response = await fetch('/posts/ai/plan/generate', {
+        const response = await fetch(generate.url(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -209,7 +211,7 @@ const executePlan = async () => {
     errorMessage.value = null;
 
     try {
-        const response = await fetch('/posts/ai/plan/execute', {
+        const response = await fetch(execute.url(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -242,7 +244,7 @@ const executePlan = async () => {
 
 const fetchBatchStatus = async (batchId: string) => {
     try {
-        const response = await fetch(`/posts/ai/plan/batch/${batchId}`, {
+        const response = await fetch(batch.url({ posterBatch: batchId }), {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
             },
@@ -278,7 +280,7 @@ const stopPolling = () => {
 
 const retryItem = async (itemId: string) => {
     try {
-        const response = await fetch(`/posts/ai/plan/batch/${itemId}/retry`, {
+        const response = await fetch(retry.url({ posterBatchItem: itemId }), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

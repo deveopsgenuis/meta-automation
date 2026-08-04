@@ -15,6 +15,7 @@ return [
 
     'default' => env('AI_TEXT_PROVIDER', 'openai'),
     'default_text_model' => env('AI_TEXT_MODEL', 'gpt-5.4'),
+    'default_image_model' => env('IMAGE_MODEL', 'gpt-image-1-mini'),
     'default_for_images' => env('AI_IMAGE_PROVIDER', 'openai'),
     'default_for_audio' => env('AI_AUDIO_PROVIDER', 'openai'),
     'default_for_transcription' => env('AI_TRANSCRIPTION_PROVIDER', 'openai'),

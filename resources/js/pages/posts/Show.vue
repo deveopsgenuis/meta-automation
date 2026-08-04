@@ -103,6 +103,7 @@ const handleDelete = () => {
 };
 
 const openLightbox = (i: number) => {
+    if (!props.post.media?.length) return;
     const collection = props.post.media.map((m) => ({
         url: m.url,
         type: classify(m) ?? MediaType.Image,
@@ -185,7 +186,7 @@ usePostEcho(props.post.id, '.post.platform.status.updated', () => {
                 <div class="border-b-2 border-foreground/10 lg:overflow-y-auto lg:border-b-0 lg:border-r-2 lg:border-foreground">
                     <div class="mx-auto max-w-2xl px-6 py-10">
                         <!-- Media grid (top) — separate rounded tiles, 4-col -->
-                        <div v-if="post.media.length > 0" class="mb-6">
+                        <div v-if="post.media && post.media.length > 0" class="mb-6">
                             <div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
                                 <button
                                     v-for="(item, i) in post.media"
