@@ -28,11 +28,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | Configuration for AI video generation (short reels/stories, 8-15s).
-    | Uses OpenRouter to access video models (e.g. google/veo-3.1-lite).
+    | Uses OpenRouter to access video models (e.g. bytedance/seedance-1-5-pro).
     |
     */
     'video' => [
-        'model' => env('VIDEO_GENERATOR_MODEL', 'google/veo-3.1-lite'),
+        'model' => env('VIDEO_GENERATOR_MODEL', 'bytedance/seedance-1-5-pro'),
         'api_key' => env('VIDEO_GENERATOR_API_KEY'),
         'base_url' => env('VIDEO_GENERATOR_BASE_URL'),
     ],

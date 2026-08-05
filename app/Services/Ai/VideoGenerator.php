@@ -20,7 +20,7 @@ class VideoGenerator
 
     public function __construct()
     {
-        $this->model = (string) config('ai.video.model', 'google/veo-3.1-lite');
+        $this->model = (string) config('ai.video.model', 'bytedance/seedance-1-5-pro');
         $this->apiKey = (string) config('ai.video.api_key', '');
         $this->baseUrl = config('ai.video.base_url');
     }
@@ -138,7 +138,9 @@ class VideoGenerator
      */
     private function downloadVideo(string $videoUrl): array
     {
-        $videoResponse = Http::timeout(120)->get($videoUrl);
+        $videoResponse = Http::withHeaders([
+            'Authorization' => "Bearer {$this->apiKey}",
+        ])->timeout(120)->get($videoUrl);
 
         if ($videoResponse->failed()) {
             return ['video_path' => null, 'error' => 'Failed to download generated video.'];
