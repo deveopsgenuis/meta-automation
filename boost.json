@@ -19,8 +19,6 @@
         "passport-development",
         "socialite-development",
         "wayfinder-development",
-        "pest-testing",
-        "inertia-vue-development",
-        "tailwindcss-development"
+        "pest-testing"
     ]
 }
