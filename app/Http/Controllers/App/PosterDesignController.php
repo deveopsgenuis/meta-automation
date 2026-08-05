@@ -6,9 +6,9 @@ namespace App\Http\Controllers\App;
 
 use App\Ai\Agents\PosterDesignGenerator;
 use App\Http\Requests\App\Ai\GeneratePosterDesignRequest;
+use App\Services\Ai\UserAiCreditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 class PosterDesignController extends Controller
@@ -24,14 +24,26 @@ class PosterDesignController extends Controller
             return response()->json(['message' => $gate->message()], Response::HTTP_PAYMENT_REQUIRED);
         }
 
+        $user = $request->user();
         $bulk = $request->boolean('bulk', false);
         $systemPrompt = $request->string('system_prompt')->toString();
         $provider = $request->string('provider')->toString() ?: null;
 
         if ($bulk) {
+            $prompts = (array) $request->input('prompts', []);
+            $requiredCredits = count($prompts);
+            $remaining = UserAiCreditService::remainingImage($user);
+
+            if ($remaining < $requiredCredits) {
+                return response()->json([
+                    'message' => "Not enough image credits. Required: {$requiredCredits}, remaining: {$remaining}.",
+                    'remaining' => $remaining,
+                ], Response::HTTP_PAYMENT_REQUIRED);
+            }
+
             $items = [];
 
-            foreach ((array) $request->input('prompts', []) as $item) {
+            foreach ($prompts as $item) {
                 $prompt = (string) data_get($item, 'prompt', '');
                 $id = (string) data_get($item, 'id', '');
 
@@ -47,9 +59,19 @@ class PosterDesignController extends Controller
                     'id' => $id,
                     'result' => $this->normalizeResponse($this->runAgent($agent, $prompt)),
                 ];
+
+                UserAiCreditService::consumeImage($user);
             }
 
             return response()->json(['items' => $items], Response::HTTP_OK);
+        }
+
+        $remaining = UserAiCreditService::remainingImage($user);
+        if ($remaining < 1) {
+            return response()->json([
+                'message' => 'No image credits remaining.',
+                'remaining' => 0,
+            ], Response::HTTP_PAYMENT_REQUIRED);
         }
 
         $prompt = $request->string('prompt')->toString();
@@ -62,6 +84,8 @@ class PosterDesignController extends Controller
         );
 
         $response = $this->runAgent($agent, $prompt);
+
+        UserAiCreditService::consumeImage($user);
 
         return response()->json($this->normalizeResponse($response), Response::HTTP_OK);
     }

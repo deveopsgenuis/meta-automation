@@ -23,6 +23,11 @@ class AuthUserResource
             'current_workspace_id' => $user->current_workspace_id,
             'created_at' => $user->created_at->toIso8601String(),
             'updated_at' => $user->updated_at->toIso8601String(),
+            'user_ai_credit' => $user->userAiCredit ? [
+                'total_allowed_ai_images' => $user->userAiCredit->total_allowed_ai_images,
+                'total_allowed_ai_video' => $user->userAiCredit->total_allowed_ai_video,
+                'total_allowed_ai_use' => $user->userAiCredit->total_allowed_ai_use,
+            ] : null,
         ];
     }
 }

@@ -7,6 +7,7 @@ namespace App\Http\Controllers\App;
 use App\Http\Requests\App\Ai\StartPostCreationRequest;
 use App\Jobs\Ai\StreamPostCreation;
 use App\Models\SocialAccount;
+use App\Services\Ai\UserAiCreditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -26,6 +27,15 @@ class PostAiCreateController extends Controller
         $gate = Gate::inspect('useAi', $workspace->account);
         if ($gate->denied()) {
             return response()->json(['message' => $gate->message()], Response::HTTP_PAYMENT_REQUIRED);
+        }
+
+        $user = $request->user();
+        $remaining = UserAiCreditService::remainingUse($user);
+        if ($remaining < 1) {
+            return response()->json([
+                'message' => 'No AI use credits remaining.',
+                'remaining' => 0,
+            ], Response::HTTP_PAYMENT_REQUIRED);
         }
 
         $socialAccountId = $request->input('social_account_id');
@@ -54,6 +64,8 @@ class PostAiCreateController extends Controller
             template: $request->input('template', 'image_card'),
             applyBrandVisuals: $request->boolean('apply_brand_visuals', true),
         );
+
+        UserAiCreditService::consumeUse($user);
 
         return response()->json([
             'creation_id' => $creationId,

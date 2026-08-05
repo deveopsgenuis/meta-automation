@@ -8,6 +8,7 @@ use App\Enums\Media\Source;
 use App\Http\Requests\App\Ai\RegeneratePostMediaImageRequest;
 use App\Jobs\Ai\RegeneratePostMediaImage;
 use App\Models\Post;
+use App\Services\Ai\UserAiCreditService;
 use App\Support\PostStatusRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
@@ -31,6 +32,15 @@ class PostAiRegenerateMediaController extends Controller
         $gate = Gate::inspect('useAi', $workspace->account);
         if ($gate->denied()) {
             return response()->json(['message' => $gate->message()], Response::HTTP_PAYMENT_REQUIRED);
+        }
+
+        $user = $request->user();
+        $remaining = UserAiCreditService::remainingImage($user);
+        if ($remaining < 1) {
+            return response()->json([
+                'message' => 'No image credits remaining.',
+                'remaining' => 0,
+            ], Response::HTTP_PAYMENT_REQUIRED);
         }
 
         $mediaItem = collect($post->media ?? [])
@@ -58,6 +68,8 @@ class PostAiRegenerateMediaController extends Controller
             regenerationId: $regenerationId,
             instruction: $request->string('instruction')->toString(),
         );
+
+        UserAiCreditService::consumeImage($user);
 
         return response()->json([
             'regeneration_id' => $regenerationId,

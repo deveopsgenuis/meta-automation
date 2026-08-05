@@ -13,6 +13,7 @@ use App\Models\Post;
 use App\Models\SocialAccount;
 use App\Models\VideoBatch;
 use App\Models\VideoBatchItem;
+use App\Services\Ai\UserAiCreditService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -105,6 +106,17 @@ class ShortVideoPlanController extends Controller
         $size = (string) $request->input('size', '9:16');
         $quality = (string) $request->input('quality', '720p');
 
+        $user = $request->user();
+        $requiredCredits = count($plan);
+        $remaining = UserAiCreditService::remainingVideo($user);
+
+        if ($remaining < $requiredCredits) {
+            return response()->json([
+                'message' => "Not enough video credits. Required: {$requiredCredits}, remaining: {$remaining}.",
+                'remaining' => $remaining,
+            ], Response::HTTP_PAYMENT_REQUIRED);
+        }
+
         $batch = VideoBatch::query()->create([
             'workspace_id' => $workspace->id,
             'user_id' => $request->user()->id,
@@ -128,6 +140,7 @@ class ShortVideoPlanController extends Controller
 
             $items[] = $item;
 
+            UserAiCreditService::consumeVideo($user);
             GenerateShortVideoBatchItem::dispatch($item->id);
         }
 

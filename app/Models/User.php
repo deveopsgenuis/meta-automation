@@ -9,6 +9,7 @@ use App\Enums\User\Persona;
 use App\Enums\User\ReferralSource;
 use App\Models\Traits\HasMedia;
 use App\Models\Traits\HasWorkspace;
+use App\Observers\UserObserver;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -19,8 +20,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\Contracts\OAuthenticatable;
-use Laravel\Passport\HasApiTokens;
 
+#[ObservedBy(UserObserver::class)]
 class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -94,6 +95,11 @@ class User extends Authenticatable implements MustVerifyEmail, OAuthenticatable
     public function notificationPreference(): HasOne
     {
         return $this->hasOne(NotificationPreference::class);
+    }
+
+    public function userAiCredit(): HasOne
+    {
+        return $this->hasOne(UserAiCredit::class);
     }
 
     public function account(): BelongsTo

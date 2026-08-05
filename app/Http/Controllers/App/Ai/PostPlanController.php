@@ -13,6 +13,7 @@ use App\Models\Post;
 use App\Models\PosterBatch;
 use App\Models\PosterBatchItem;
 use App\Models\SocialAccount;
+use App\Services\Ai\UserAiCreditService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,6 +33,15 @@ class PostPlanController extends Controller
         $gate = Gate::inspect('useAi', $workspace->account);
         if ($gate->denied()) {
             return response()->json(['message' => $gate->message()], Response::HTTP_PAYMENT_REQUIRED);
+        }
+
+        $user = $request->user();
+        $remaining = UserAiCreditService::remainingUse($user);
+        if ($remaining < 1) {
+            return response()->json([
+                'message' => 'No AI use credits remaining.',
+                'remaining' => 0,
+            ], Response::HTTP_PAYMENT_REQUIRED);
         }
 
         $totalPosts = (int) $request->input('total_posts', 7);
@@ -73,6 +83,8 @@ class PostPlanController extends Controller
         );
 
         $response = $agent->prompt("Generate a {$totalPosts}-day post and poster plan.");
+
+        UserAiCreditService::consumeUse($user);
 
         $plan = data_get($response, 'posts', []);
 

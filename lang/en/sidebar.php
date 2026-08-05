@@ -25,6 +25,7 @@ return [
         'posts' => 'Posts',
         'workspace' => 'Workspace',
         'others' => 'Others',
+        'credits' => 'AI Credits',
     ],
 
     'analytics' => 'Analytics',
@@ -45,6 +46,12 @@ return [
         'labels' => 'Labels',
         'assets' => 'Assets',
         'api_keys' => 'API Keys',
+    ],
+
+    'credits' => [
+        'images' => 'Images',
+        'videos' => 'Videos',
+        'uses' => 'AI Uses',
     ],
 
     'notifications' => 'Notifications',

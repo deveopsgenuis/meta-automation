@@ -19,6 +19,7 @@ import {
     IconPlus,
     IconSelector,
     IconTag,
+    IconVideo,
 } from '@tabler/icons-vue';
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
@@ -63,10 +64,17 @@ interface Workspace {
     logo_url: string | null;
 }
 
+interface UserAiCredit {
+    total_allowed_ai_images: number;
+    total_allowed_ai_video: number;
+    total_allowed_ai_use: number;
+}
+
 const page = usePage();
 const currentWorkspace = computed<Workspace | null>(() => page.props.auth.currentWorkspace as Workspace | null);
 const workspaces = computed<Workspace[]>(() => page.props.auth.workspaces as Workspace[]);
 const subscriptionPastDue = computed<boolean>(() => Boolean(page.props.auth.subscriptionPastDue));
+const userAiCredit = computed<UserAiCredit | null>(() => (page.props.auth.user as any)?.user_ai_credit ?? null);
 
 const { canCreatePost, canManageAccounts, canManageAutomations, canCreateWorkspace } = useWorkspaceRole();
 
@@ -152,23 +160,15 @@ const workspaceNavItems = computed<NavItem[]>(() => [
         : []),
 ]);
 
-const supportNavItems = computed(() => [
-    {
-        title: trans('sidebar.support.referral'),
-        href: 'https://affiliates.trypost.it/',
-        icon: IconGift,
-    },
-    {
-        title: trans('sidebar.support.stay_updated'),
-        href: 'https://x.com/trypostit',
-        icon: IconBrandX,
-    },
-    {
-        title: trans('sidebar.support.docs'),
-        href: 'https://docs.trypost.it',
-        icon: IconLifebuoy,
-    },
-]);
+const creditItems = computed(() => {
+    const credit = userAiCredit.value;
+    if (!credit) return [];
+    return [
+        { label: trans('sidebar.credits.images'), remaining: credit.total_allowed_ai_images, total: 150, icon: IconPhoto },
+        { label: trans('sidebar.credits.videos'), remaining: credit.total_allowed_ai_video, total: 10, icon: IconVideo },
+        { label: trans('sidebar.credits.uses'), remaining: credit.total_allowed_ai_use, total: 250, icon: IconBolt },
+    ];
+});
 
 const switchWorkspace = (workspaceId: string) => {
     router.post(switchMethod.url(workspaceId), {}, {
@@ -241,7 +241,22 @@ const handleCreateWorkspace = () => {
             <NavMain v-if="currentWorkspace" :items="mainNavItems" />
             <NavMain v-if="currentWorkspace" :items="postsNavItems" :label="$t('sidebar.groups.posts')" />
             <NavMain v-if="currentWorkspace && workspaceNavItems.length" :items="workspaceNavItems" :label="$t('sidebar.groups.workspace')" />
-            <NavSupport v-if="currentWorkspace" :items="supportNavItems" :label="$t('sidebar.groups.others')" />
+
+            <!-- AI Credits -->
+            <SidebarGroup v-if="currentWorkspace && creditItems.length" class="px-2 py-0">
+                <SidebarGroupLabel>{{ $t('sidebar.groups.credits') }}</SidebarGroupLabel>
+                <SidebarMenu>
+                    <SidebarMenuItem v-for="item in creditItems" :key="item.label">
+                        <SidebarMenuButton class="cursor-default">
+                            <component :is="item.icon" />
+                            <span class="flex-1">{{ item.label }}</span>
+                            <span class="text-xs font-semibold text-muted-foreground">
+                                {{ item.remaining }} / {{ item.total }}
+                            </span>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </SidebarGroup>
         </SidebarContent>
 
         <SidebarFooter>
