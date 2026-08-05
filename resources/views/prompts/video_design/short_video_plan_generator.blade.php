@@ -37,3 +37,4 @@ Each video needs:
 video_description and post_hashtags must be in {{ $content_language }}. video_prompt itself should be written in English for the video model, but any on-screen text it specifies must be in {{ $content_language }}.
 
 IMPORTANT: Videos should be engaging from the first frame. Include hook in first 2 seconds, main content, and a clear CTA or loop point. The video_prompt must be detailed enough for an AI video model to generate the exact video described.
+IMPORTANT: Ensure that the video_prompt specifies any text overlays, transitions, and visual effects clearly, as the AI video model will render these elements.
