@@ -33,7 +33,7 @@ return [
     */
     'video' => [
         'provider' => env('VIDEO_GENERATOR_PROVIDER', 'gemini'),
-        'model' => env('VIDEO_GENERATOR_MODEL', 'veo-3.1-lite-'),
+        'model' => env('VIDEO_GENERATOR_MODEL', 'veo-3.1-lite'),
         'api_key' => env('VIDEO_GENERATOR_API_KEY'),
         'base_url' => env('VIDEO_GENERATOR_BASE_URL'),
     ],
