@@ -236,7 +236,7 @@ class GeneratePosterBatchItem implements ShouldQueue
                 ->square()
                 ->quality('low')
                 ->timeout(120)
-                ->generate(model: config('ai.default_image_model', 'gpt-image-2'));
+                ->generate(model: config('ai.default_image_model'));
 
             $bytes = (string) $response;
 

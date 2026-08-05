@@ -7,15 +7,19 @@ namespace App\Services\Ai;
 use App\Enums\Workspace\ContentLanguage;
 use App\Enums\Workspace\ImageStyle;
 use App\Support\HexColorName;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Laravel\Ai\Image;
 use Throwable;
 
 class AiImageClient
 {
-    public const MODEL = 'gpt-image-2';
-
     private const BRAND_DESCRIPTION_MAX = 200;
+
+    private function getModel(): string
+    {
+        return (string) Config::get('ai.default_image_model', 'gpt-image-2');
+    }
 
     /**
      * Generate raw image bytes via OpenAI gpt-image-2. Returns null on any
@@ -72,7 +76,7 @@ class AiImageClient
                 default => $builder->square(),
             };
 
-            $image = $builder->generate(model: self::MODEL);
+            $image = $builder->generate(model: $this->getModel());
         } catch (Throwable $e) {
             Log::warning('AiImageClient: generation failed', [
                 'style' => $style->value,

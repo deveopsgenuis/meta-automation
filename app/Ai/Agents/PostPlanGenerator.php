@@ -7,12 +7,14 @@ namespace App\Ai\Agents;
 use App\Models\Workspace;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\Temperature;
+use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 
 #[Temperature(0.7)]
+#[Timeout(120)]
 class PostPlanGenerator implements Agent, HasStructuredOutput
 {
     use Promptable;

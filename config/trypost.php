@@ -109,6 +109,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Registration
+    |--------------------------------------------------------------------------
+    |
+    | Control registration behavior in self-hosted mode:
+    | - true: allow open registration (anyone can sign up)
+    | - false: require invite to register (default for security)
+    |
+    */
+
+    'registration' => [
+        'enabled' => (bool) env('REGISTRATION_ENABLED', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Social Platforms
     |--------------------------------------------------------------------------
     |
