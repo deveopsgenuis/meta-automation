@@ -9,13 +9,16 @@ use App\Http\Controllers\App\Controller;
 use App\Http\Requests\App\Ai\ExecutePostPlanRequest;
 use App\Http\Requests\App\Ai\GeneratePostPlanRequest;
 use App\Jobs\Ai\GeneratePosterBatchItem;
+use App\Models\Post;
 use App\Models\PosterBatch;
 use App\Models\PosterBatchItem;
 use App\Models\SocialAccount;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class PostPlanController extends Controller
@@ -42,12 +45,30 @@ class PostPlanController extends Controller
             $channelPlatform = $account?->platform?->value ?? $account?->platform;
         }
 
+        $endDate = Carbon::parse($startDate)->addDays($totalPosts - 1)->endOfDay();
+
+        $existingScheduledPosts = Post::query()
+            ->where('workspace_id', $workspace->id)
+            ->where('status', 'scheduled')
+            ->whereNotNull('scheduled_at')
+            ->whereBetween('scheduled_at', [$startDate, $endDate])
+            ->orderBy('scheduled_at')
+            ->get()
+            ->map(fn (Post $post) => [
+                'date' => $post->scheduled_at->format('Y-m-d'),
+                'time' => $post->scheduled_at->format('H:i'),
+                'content' => Str::limit(strip_tags($post->content), 80),
+            ])
+            ->values()
+            ->all();
+
         $agent = new PostPlanGenerator(
             workspace: $workspace,
             totalPosts: $totalPosts,
             startDate: $startDate,
             channelPlatform: is_string($channelPlatform) ? $channelPlatform : null,
             instruction: $instruction,
+            existingScheduledPosts: $existingScheduledPosts,
             provider: $request->input('provider'),
         );
 

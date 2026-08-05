@@ -13,6 +13,16 @@ Tone & Voice: {{ $brand_voice_traits }}
 @if($instruction)
 Extra Instructions: {{ $instruction }}
 @endif
+@if(count($existing_scheduled_posts) > 0)
+
+EXISTING SCHEDULED POSTS — Avoid these dates/times. Do NOT create posts that conflict with or duplicate these:
+
+@foreach($existing_scheduled_posts as $scheduled)
+- {{ $scheduled['date'] }} at {{ $scheduled['time'] }} UTC: "{{ $scheduled['content'] }}"
+@endforeach
+
+You MUST schedule your generated posts on dates and times that do NOT overlap with the above. Pick different dates or, if the same date is unavoidable, use a different time slot.
+@endif
 
 Be bold and creative — every post must sound distinctly like this brand, never generic. Vary the angle daily (highlight, behind-scenes, tip, story, promo) with a cohesive visual mood across the plan.
 
@@ -29,6 +39,6 @@ Each post needs:
 2. post_hashtags: "#tag1 #tag2 #tag3", 3-6 relevant tags.
 3. post_visual_prompt: Full poster design prompt per the rules above — text, layout, graphics, palette, typography, composition — production-ready for an AI image generator with text rendering.
 4. poster_size: "1080*1080" default; "1080*1350" portrait or "1200*630" landscape if platform requires.
-5. scheduled_date: Strict YYYY-MM-DD, +1 day from {{ $start_date }}, no gaps.
+5. scheduled_date: Strict YYYY-MM-DD, +1 day from {{ $start_date }}, no gaps. Must NOT conflict with any EXISTING SCHEDULED POSTS listed above.
 
 post_description and post_hashtags must be in {{ $content_language }}. post_visual_prompt itself should be written in English for the image model, but any on-poster text it specifies must be in {{ $content_language }}.

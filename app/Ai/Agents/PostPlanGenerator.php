@@ -19,12 +19,16 @@ class PostPlanGenerator implements Agent, HasStructuredOutput
 {
     use Promptable;
 
+    /**
+     * @param  array<int, array{date: string, time: string, content: string}>  $existingScheduledPosts
+     */
     public function __construct(
         public Workspace $workspace,
         public int $totalPosts = 7,
         public string $startDate = '',
         public ?string $channelPlatform = null,
         public string $instruction = '',
+        public array $existingScheduledPosts = [],
         public ?string $provider = null,
         public ?string $model = null,
     ) {}
@@ -39,6 +43,7 @@ class PostPlanGenerator implements Agent, HasStructuredOutput
             'brand_voice_traits' => is_array($this->workspace->brand_voice_traits) ? implode(', ', $this->workspace->brand_voice_traits) : '',
             'content_language' => $this->workspace->content_language ?: 'en',
             'instruction' => $this->instruction,
+            'existing_scheduled_posts' => $this->existingScheduledPosts,
         ])->render();
     }
 
