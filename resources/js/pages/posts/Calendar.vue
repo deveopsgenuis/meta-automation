@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { IconChevronLeft, IconChevronRight, IconPlus } from '@tabler/icons-vue';
+import { IconChevronLeft, IconChevronRight, IconPlus, IconVideo } from '@tabler/icons-vue';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 import DatePicker from '@/components/DatePicker.vue';
 import PosterBatchDialog from '@/components/posts/PosterBatchDialog.vue';
+import VideoBatchDialog from '@/components/posts/VideoBatchDialog.vue';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -74,6 +75,30 @@ interface ActiveBatch {
     items?: ActiveBatchItem[];
 }
 
+interface ActiveVideoBatchItem {
+    id: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    post_id?: string | null;
+    video_url?: string | null;
+    error?: string | null;
+    plan_data: {
+        video_description: string;
+        video_prompt: string;
+        scheduled_date: string;
+        scheduled_time: string;
+        post_hashtags: string;
+    };
+}
+
+interface ActiveVideoBatch {
+    id: string;
+    status: 'pending' | 'generating' | 'completed' | 'failed';
+    total_items: number;
+    completed_items: number;
+    failed_items: number;
+    items?: ActiveVideoBatchItem[];
+}
+
 interface Props {
     workspace: Workspace;
     posts: Record<string, Post[]>;
@@ -83,6 +108,7 @@ interface Props {
     view: 'day' | 'week' | 'month';
     socialAccounts?: SocialAccount[];
     activeBatch?: ActiveBatch | null;
+    activeVideoBatch?: ActiveVideoBatch | null;
 }
 
 const props = defineProps<Props>();
@@ -92,6 +118,7 @@ const page = usePage();
 const isMobile = ref(false);
 const { canCreatePost } = useWorkspaceRole();
 const posterDialogOpen = ref(false);
+const videoDialogOpen = ref(false);
 
 const calculatedTotalPosts = computed(() => {
     if (effectiveView.value === 'day') return 1;
@@ -107,6 +134,10 @@ const calculatedStartDate = computed(() => {
 
 const openPosterDialog = () => {
     posterDialogOpen.value = true;
+};
+
+const openVideoDialog = () => {
+    videoDialogOpen.value = true;
 };
 
 const createPostUrl = (dateStr: string): string => {
@@ -330,6 +361,10 @@ const formatTime = (scheduledAt: string): string => {
                 </div>
                 <div v-if="canCreatePost" class="flex flex-col gap-2">
                     <Button class="w-full" @click="openPosterDialog">{{ $t('calendar.new_poster') }}</Button>
+                    <Button class="w-full" variant="outline" @click="openVideoDialog">
+                        <IconVideo class="mr-1 size-4" />
+                        {{ $t('calendar.new_video') }}
+                    </Button>
                     <Link :href="createPost.url()" class="block">
                         <Button class="w-full">{{ $t('calendar.new_post') }}</Button>
                     </Link>
@@ -365,6 +400,10 @@ const formatTime = (scheduledAt: string): string => {
 
                     <div v-if="canCreatePost" class="flex items-center gap-2">
                         <Button variant="outline" @click="openPosterDialog">{{ $t('calendar.new_poster') }}</Button>
+                        <Button variant="outline" @click="openVideoDialog">
+                            <IconVideo class="mr-1 size-4" />
+                            {{ $t('calendar.new_video') }}
+                        </Button>
                         <Link :href="createPost.url()">
                             <Button>{{ $t('calendar.new_post') }}</Button>
                         </Link>
@@ -378,6 +417,13 @@ const formatTime = (scheduledAt: string): string => {
                 :start-date="calculatedStartDate"
                 :social-accounts="socialAccounts"
                 :active-batch="activeBatch"
+            />
+
+            <VideoBatchDialog
+                v-model="videoDialogOpen"
+                :start-date="calculatedStartDate"
+                :social-accounts="socialAccounts"
+                :active-batch="activeVideoBatch"
             />
 
             <!-- Day View (mobile or when view=day) -->

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\App\Ai\PostPlanController;
+use App\Http\Controllers\App\Ai\ShortVideoPlanController;
 use App\Http\Controllers\App\AnalyticsController;
 use App\Http\Controllers\App\ApiKeyController;
 use App\Http\Controllers\App\AssetController;
@@ -18,7 +20,6 @@ use App\Http\Controllers\App\PostAiRegenerateMediaController;
 use App\Http\Controllers\App\PostAiReviewController;
 use App\Http\Controllers\App\PostCommentController;
 use App\Http\Controllers\App\PostController;
-use App\Http\Controllers\App\Ai\PostPlanController;
 use App\Http\Controllers\App\PosterDesignController;
 use App\Http\Controllers\App\PostTemplateController;
 use App\Http\Controllers\App\PresenceController;
@@ -211,6 +212,12 @@ Route::middleware(['auth', EnsureAccountReady::class, EnsureHasWorkspace::class]
     Route::get('posts/ai/plan/batch/{posterBatch}', [PostPlanController::class, 'show'])->name('app.posts.ai.plan.batch');
     Route::post('posts/ai/plan/batch/{posterBatchItem}/retry', [PostPlanController::class, 'retryItem'])->name('app.posts.ai.plan.batch.retry');
     Route::get('posts/ai/{creationId}/loading', [PostAiCreateController::class, 'loading'])->name('app.posts.ai.loading')->whereUuid('creationId');
+
+    // Short Video AI
+    Route::post('posts/ai/video/plan/generate', [ShortVideoPlanController::class, 'generate'])->name('app.posts.ai.video.plan.generate');
+    Route::post('posts/ai/video/plan/execute', [ShortVideoPlanController::class, 'execute'])->name('app.posts.ai.video.plan.execute');
+    Route::get('posts/ai/video/plan/batch/{videoBatch}', [ShortVideoPlanController::class, 'show'])->name('app.posts.ai.video.plan.batch');
+    Route::post('posts/ai/video/plan/batch/{videoBatchItem}/retry', [ShortVideoPlanController::class, 'retryItem'])->name('app.posts.ai.video.plan.batch.retry');
 
     // Post Comments
     Route::get('posts/{post}/comments', [PostCommentController::class, 'index'])->name('app.posts.comments.index');

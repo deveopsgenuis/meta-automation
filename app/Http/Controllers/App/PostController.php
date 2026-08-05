@@ -22,8 +22,9 @@ use App\Http\Resources\Api\PostResource;
 use App\Http\Resources\App\PlatformConfigResource;
 use App\Http\Resources\App\SocialAccountResource;
 use App\Models\Post;
-use App\Models\PostPlatform;
 use App\Models\PosterBatch;
+use App\Models\PostPlatform;
+use App\Models\VideoBatch;
 use App\Services\Post\PostMetricsFetcher;
 use App\Services\Social\TikTokCreatorInfo;
 use App\Support\PostStatusRules;
@@ -141,6 +142,12 @@ class PostController extends Controller
                 $workspace->socialAccounts()->active()->get()
             ),
             'activeBatch' => PosterBatch::query()
+                ->where('workspace_id', $workspace->id)
+                ->whereIn('status', ['pending', 'generating'])
+                ->with('items')
+                ->latest()
+                ->first(),
+            'activeVideoBatch' => VideoBatch::query()
                 ->where('workspace_id', $workspace->id)
                 ->whereIn('status', ['pending', 'generating'])
                 ->with('items')
