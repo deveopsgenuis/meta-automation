@@ -28,12 +28,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | Configuration for AI video generation (short reels/stories, 8-15s).
-    | Supports Gemini and OpenAI as video generation providers.
+    | Uses OpenRouter to access video models (e.g. google/veo-3.1-lite).
     |
     */
     'video' => [
-        'provider' => env('VIDEO_GENERATOR_PROVIDER', 'gemini'),
-        'model' => env('VIDEO_GENERATOR_MODEL', 'veo-3.1-lite'),
+        'model' => env('VIDEO_GENERATOR_MODEL', 'google/veo-3.1-lite'),
         'api_key' => env('VIDEO_GENERATOR_API_KEY'),
         'base_url' => env('VIDEO_GENERATOR_BASE_URL'),
     ],

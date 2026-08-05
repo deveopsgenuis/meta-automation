@@ -6,13 +6,12 @@ namespace App\Services\Ai;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
 class VideoGenerator
 {
-    private string $provider;
-
     private string $model;
 
     private string $apiKey;
@@ -21,14 +20,13 @@ class VideoGenerator
 
     public function __construct()
     {
-        $this->provider = (string) config('ai.video.provider', 'gemini');
-        $this->model = (string) config('ai.video.model', 'veo-3.0-generate-preview');
+        $this->model = (string) config('ai.video.model', 'google/veo-3.1-lite');
         $this->apiKey = (string) config('ai.video.api_key', '');
         $this->baseUrl = config('ai.video.base_url');
     }
 
     /**
-     * Generate a short video using the configured provider.
+     * Generate a short video via OpenRouter (submit + poll).
      *
      * @return array{video_path: string|null, error: string|null}
      */
@@ -39,14 +37,9 @@ class VideoGenerator
         }
 
         try {
-            return match ($this->provider) {
-                'gemini' => $this->generateGemini($prompt, $size, $quality),
-                'openai' => $this->generateOpenAI($prompt, $size, $quality),
-                default => ['video_path' => null, 'error' => "Unsupported video provider: {$this->provider}"],
-            };
+            return $this->generateViaOpenRouter($prompt, $size, $quality);
         } catch (Throwable $e) {
             Log::error('VideoGenerator: generation failed', [
-                'provider' => $this->provider,
                 'model' => $this->model,
                 'error' => $e->getMessage(),
             ]);
@@ -58,103 +51,93 @@ class VideoGenerator
     /**
      * @return array{video_path: string|null, error: string|null}
      */
-    private function generateGemini(string $prompt, string $size, string $quality): array
+    private function generateViaOpenRouter(string $prompt, string $size, string $quality): array
     {
-        $baseUrl = $this->baseUrl ?: 'https://generativelanguage.googleapis.com/v1beta';
-        $url = "{$baseUrl}/models/{$this->model}:generateContent?key={$this->apiKey}";
+        $baseUrl = $this->baseUrl ?: 'https://openrouter.ai/api/v1';
 
-        $aspectRatio = match ($size) {
-            '1:1' => '1:1',
-            '9:16' => '9:16',
-            '16:9' => '16:9',
-            default => '9:16',
-        };
+        // Step 1: Submit video generation request
+        $submitResponse = Http::withHeaders([
+            'Authorization' => "Bearer {$this->apiKey}",
+            'Content-Type' => 'application/json',
+        ])->timeout(60)->post("{$baseUrl}/videos", [
+            'model' => $this->model,
+            'prompt' => $prompt,
+        ]);
 
-        $response = Http::timeout(300)
-            ->post($url, [
-                'contents' => [
-                    [
-                        'parts' => [
-                            ['text' => $prompt],
-                        ],
-                    ],
-                ],
-                'generationConfig' => [
-                    'responseModalities' => ['TEXT', 'VIDEO'],
-                    'videoConfig' => [
-                        'aspectRatio' => $aspectRatio,
-                        'personGeneration' => 'allow_all',
-                    ],
-                ],
+        if ($submitResponse->failed()) {
+            $error = $submitResponse->json('error.message') ?? $submitResponse->json('error') ?? "HTTP {$submitResponse->status()}";
+
+            return ['video_path' => null, 'error' => "OpenRouter submit error: {$error}"];
+        }
+
+        $jobId = $submitResponse->json('id');
+        $pollingUrl = $submitResponse->json('polling_url');
+
+        if (! $jobId || ! $pollingUrl) {
+            return ['video_path' => null, 'error' => 'No job ID or polling URL returned from OpenRouter.'];
+        }
+
+        Log::info('VideoGenerator: job submitted', [
+            'job_id' => $jobId,
+            'polling_url' => $pollingUrl,
+        ]);
+
+        // Step 2: Poll for completion
+        $maxAttempts = 120; // 10 minutes max (5s intervals)
+        $attempt = 0;
+
+        while ($attempt < $maxAttempts) {
+            sleep(5);
+            $attempt++;
+
+            $pollResponse = Http::withHeaders([
+                'Authorization' => "Bearer {$this->apiKey}",
+            ])->timeout(30)->get($pollingUrl);
+
+            if ($pollResponse->failed()) {
+                Log::warning('VideoGenerator: poll request failed', [
+                    'attempt' => $attempt,
+                    'status' => $pollResponse->status(),
+                ]);
+
+                continue;
+            }
+
+            $statusData = $pollResponse->json();
+            $status = $statusData['status'] ?? 'unknown';
+
+            Log::info('VideoGenerator: poll status', [
+                'job_id' => $jobId,
+                'status' => $status,
+                'attempt' => $attempt,
             ]);
 
-        if ($response->failed()) {
-            $error = $response->json('error.message') ?? "HTTP {$response->status()}";
+            if ($status === 'completed') {
+                $unsignedUrls = $statusData['unsigned_urls'] ?? [];
+                $videoUrl = $unsignedUrls[0] ?? $statusData['url'] ?? null;
 
-            return ['video_path' => null, 'error' => "Gemini API error: {$error}"];
-        }
-
-        $candidates = $response->json('candidates', []);
-
-        if (empty($candidates)) {
-            return ['video_path' => null, 'error' => 'No video generated by Gemini.'];
-        }
-
-        $parts = $candidates[0]['content']['parts'] ?? [];
-
-        foreach ($parts as $part) {
-            if (isset($part['inlineData']['data']) && isset($part['inlineData']['mimeType'])) {
-                $mimeType = $part['inlineData']['mimeType'];
-                $extension = str_contains($mimeType, 'webm') ? 'webm' : 'mp4';
-                $filename = 'videos/'.Str::uuid().".{$extension}";
-                $bytes = base64_decode($part['inlineData']['data'], true);
-
-                if ($bytes !== false && $bytes !== '') {
-                    Storage::disk('public')->put($filename, $bytes);
-
-                    return ['video_path' => $filename, 'error' => null];
+                if (! $videoUrl) {
+                    return ['video_path' => null, 'error' => 'No video URL in completed response.'];
                 }
+
+                return $this->downloadVideo($videoUrl);
+            }
+
+            if ($status === 'failed') {
+                $errorMsg = $statusData['error'] ?? 'Unknown error';
+
+                return ['video_path' => null, 'error' => "Video generation failed: {$errorMsg}"];
             }
         }
 
-        return ['video_path' => null, 'error' => 'No video data found in Gemini response.'];
+        return ['video_path' => null, 'error' => 'Video generation timed out after 10 minutes.'];
     }
 
     /**
      * @return array{video_path: string|null, error: string|null}
      */
-    private function generateOpenAI(string $prompt, string $size, string $quality): array
+    private function downloadVideo(string $videoUrl): array
     {
-        $baseUrl = $this->baseUrl ?: 'https://api.openai.com/v1';
-        $url = "{$baseUrl}/video/generations";
-
-        $resolution = match ($quality) {
-            '1080p' => '1080p',
-            default => '720p',
-        };
-
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer {$this->apiKey}",
-            'Content-Type' => 'application/json',
-        ])->timeout(300)->post($url, [
-            'model' => $this->model,
-            'prompt' => $prompt,
-            'size' => $size === '9:16' ? '768x1344' : ($size === '1:1' ? '1024x1024' : '1344x768'),
-            'quality' => $resolution,
-        ]);
-
-        if ($response->failed()) {
-            $error = $response->json('error.message') ?? "HTTP {$response->status()}";
-
-            return ['video_path' => null, 'error' => "OpenAI API error: {$error}"];
-        }
-
-        $videoUrl = $response->json('data.0.url');
-
-        if (! $videoUrl) {
-            return ['video_path' => null, 'error' => 'No video URL in OpenAI response.'];
-        }
-
         $videoResponse = Http::timeout(120)->get($videoUrl);
 
         if ($videoResponse->failed()) {
