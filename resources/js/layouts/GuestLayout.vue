@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
 import dayjs from '@/dayjs';
 
 defineProps<{
@@ -29,9 +30,19 @@ const currentYear = dayjs().year();
         <!-- Footer -->
         <footer class="border-t mt-auto">
             <div class="mx-auto max-w-5xl px-6 py-8">
-                <p class="text-sm text-muted-foreground text-center">
-                    &copy; {{ currentYear }} TryPost. All rights reserved.
-                </p>
+                <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
+                    <p class="text-sm text-muted-foreground">
+                        &copy; {{ currentYear }} TryPost. All rights reserved.
+                    </p>
+                    <nav class="flex gap-4 text-sm text-muted-foreground">
+                        <Link :href="route('privacy')" class="hover:text-foreground transition-colors">
+                            {{ $t('privacy.page_title') }}
+                        </Link>
+                        <Link :href="route('terms')" class="hover:text-foreground transition-colors">
+                            {{ $t('terms.page_title') }}
+                        </Link>
+                    </nav>
+                </div>
             </div>
         </footer>
     </div>
