@@ -6,13 +6,13 @@ namespace App\Jobs\Ai;
 
 use App\Actions\Post\CreatePost;
 use App\Enums\Media\Source;
-use App\Enums\Media\Type as MediaType;
 use App\Enums\Post\CreatedVia;
 use App\Enums\Post\Status as PostStatus;
 use App\Events\Ai\PosterBatchProgress;
 use App\Models\Media;
 use App\Models\Post;
 use App\Models\PosterBatchItem;
+use App\Services\Ai\UserAiCreditService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -118,6 +118,8 @@ class GeneratePosterBatchItem implements ShouldQueue
 
         // Generate image via AI
         $imagePath = $this->generatePosterImage($workspace, $visualPrompt);
+
+        UserAiCreditService::consumeImage($user);
 
         // Attach image to media collection
         $mediaItem = null;

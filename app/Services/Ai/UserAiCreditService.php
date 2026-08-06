@@ -5,22 +5,23 @@ declare(strict_types=1);
 namespace App\Services\Ai;
 
 use App\Models\User;
+use App\Models\UserAiCredit;
 
 class UserAiCreditService
 {
     public static function remainingImage(User $user): int
     {
-        return (int) ($user->userAiCredit?->total_allowed_ai_images ?? 0);
+        return (int) UserAiCredit::where('user_id', $user->id)->value('total_allowed_ai_images');
     }
 
     public static function remainingVideo(User $user): int
     {
-        return (int) ($user->userAiCredit?->total_allowed_ai_video ?? 0);
+        return (int) UserAiCredit::where('user_id', $user->id)->value('total_allowed_ai_video');
     }
 
     public static function remainingUse(User $user): int
     {
-        return (int) ($user->userAiCredit?->total_allowed_ai_use ?? 0);
+        return (int) UserAiCredit::where('user_id', $user->id)->value('total_allowed_ai_use');
     }
 
     public static function canGenerateImage(User $user): bool
@@ -40,25 +41,22 @@ class UserAiCreditService
 
     public static function consumeImage(User $user): void
     {
-        $credit = $user->userAiCredit;
-        if ($credit && $credit->total_allowed_ai_images > 0) {
-            $credit->decrement('total_allowed_ai_images');
-        }
+        UserAiCredit::where('user_id', $user->id)
+            ->where('total_allowed_ai_images', '>', 0)
+            ->decrement('total_allowed_ai_images');
     }
 
     public static function consumeVideo(User $user): void
     {
-        $credit = $user->userAiCredit;
-        if ($credit && $credit->total_allowed_ai_video > 0) {
-            $credit->decrement('total_allowed_ai_video');
-        }
+        UserAiCredit::where('user_id', $user->id)
+            ->where('total_allowed_ai_video', '>', 0)
+            ->decrement('total_allowed_ai_video');
     }
 
     public static function consumeUse(User $user): void
     {
-        $credit = $user->userAiCredit;
-        if ($credit && $credit->total_allowed_ai_use > 0) {
-            $credit->decrement('total_allowed_ai_use');
-        }
+        UserAiCredit::where('user_id', $user->id)
+            ->where('total_allowed_ai_use', '>', 0)
+            ->decrement('total_allowed_ai_use');
     }
 }
