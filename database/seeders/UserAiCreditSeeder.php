@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Database\Seeders;
+
 use App\Models\User;
 use App\Models\UserAiCredit;
 use Illuminate\Database\Seeder;
