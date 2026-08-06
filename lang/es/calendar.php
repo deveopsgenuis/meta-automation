@@ -8,6 +8,7 @@ return [
     'month' => 'Mes',
     'new_post' => 'Nuevo post',
     'new_poster' => 'Nuevo póster',
+    'new_video' => 'Nuevo video',
     'no_content' => 'Sin contenido',
     'more' => '+:count más',
     'poster_dialog' => [

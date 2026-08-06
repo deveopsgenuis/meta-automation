@@ -8,6 +8,7 @@ return [
     'month' => 'شهر',
     'new_post' => 'منشور جديد',
     'new_poster' => 'ملصق جديد',
+    'new_video' => 'فيديو جديد',
     'no_content' => 'لا يوجد محتوى',
     'more' => '+:count المزيد',
     'poster_dialog' => [

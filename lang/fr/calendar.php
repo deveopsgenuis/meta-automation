@@ -7,6 +7,7 @@ return [
     'week' => 'Semaine',
     'month' => 'Mois',
     'new_post' => 'Nouvelle publication',
+    'new_video' => 'Nouvelle vidéo',
     'new_poster' => 'Nouvelle affiche',
     'no_content' => 'Aucun contenu',
     'more' => '+:count de plus',
