@@ -25,6 +25,7 @@ return [
         'posts' => 'Publications',
         'workspace' => 'Espace de travail',
         'others' => 'Autres',
+        'credits' => 'Crédits',
     ],
 
     'analytics' => 'Statistiques',
@@ -37,6 +38,12 @@ return [
         'scheduled' => 'Programmées',
         'posted' => 'Publiées',
         'drafts' => 'Brouillons',
+    ],
+
+    'credits' => [
+        'videos' => 'Crédits vidéo',
+        'images' => 'Crédits image',
+        'uses' => 'Consommations IA',
     ],
 
     'workspace' => [
