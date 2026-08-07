@@ -76,6 +76,10 @@ return [
         'submit' => 'Log in',
         'no_account' => "Don't have an account?",
         'sign_up' => 'Sign up',
+        'terms_prefix' => 'By continuing, you agree to our',
+        'privacy_policy' => 'Privacy Policy',
+        'and' => 'and',
+        'terms_of_service' => 'Terms of Service',
     ],
 
     'register' => [

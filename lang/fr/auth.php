@@ -76,6 +76,10 @@ return [
         'submit' => 'Se connecter',
         'no_account' => 'Vous n\'avez pas de compte ?',
         'sign_up' => 'S\'inscrire',
+        'terms_prefix' => 'En continuant, vous acceptez notre',
+        'privacy_policy' => 'Politique de confidentialité',
+        'and' => 'et nos',
+        'terms_of_service' => 'Conditions d\'utilisation',
     ],
 
     'register' => [

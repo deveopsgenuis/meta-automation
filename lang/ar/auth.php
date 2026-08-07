@@ -76,6 +76,10 @@ return [
         'submit' => 'تسجيل الدخول',
         'no_account' => 'ليس لديك حساب؟',
         'sign_up' => 'إنشاء حساب',
+        'terms_prefix' => 'بالمتابعة، أنت توافق على',
+        'privacy_policy' => 'سياسة الخصوصية',
+        'and' => 'و',
+        'terms_of_service' => 'شروط الخدمة',
     ],
 
     'register' => [

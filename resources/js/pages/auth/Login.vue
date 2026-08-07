@@ -77,6 +77,13 @@ const isSelfHosted = computed(() => Boolean(page.props.selfHosted));
                     {{ $t('auth.login.no_account') }}
                     <TextLink :href="register()" :tabindex="5">{{ $t('auth.login.sign_up') }}</TextLink>
                 </div>
+
+                <div class="text-center text-xs text-muted-foreground">
+                    {{ $t('auth.login.terms_prefix') }}
+                    <TextLink href="/privacy">{{ $t('auth.login.privacy_policy') }}</TextLink>
+                    {{ $t('auth.login.and') }}
+                    <TextLink href="/terms">{{ $t('auth.login.terms_of_service') }}</TextLink>
+                </div>
             </Form>
         </div>
     </AuthBase>
