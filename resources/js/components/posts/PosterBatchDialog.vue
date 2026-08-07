@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { generate, execute, batch } from '@/routes/app/posts/ai/plan';
+import { generate, execute, batch as batchRoute } from '@/routes/app/posts/ai/plan';
 import { retry } from '@/routes/app/posts/ai/plan/batch';
 
 interface SocialAccount {
@@ -244,7 +244,7 @@ const executePlan = async () => {
 
 const fetchBatchStatus = async (batchId: string) => {
     try {
-        const response = await fetch(batch.url({ posterBatch: batchId }), {
+        const response = await fetch(batchRoute.url({ posterBatch: batchId }), {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
             },
