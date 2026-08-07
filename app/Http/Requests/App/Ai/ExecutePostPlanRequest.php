@@ -23,6 +23,7 @@ class ExecutePostPlanRequest extends FormRequest
             'plan.*.post_visual_prompt' => ['required', 'string'],
             'plan.*.poster_size' => ['nullable', 'string'],
             'plan.*.scheduled_date' => ['required', 'string', 'date'],
+            'plan.*.scheduled_time' => ['nullable', 'string'],
         ];
     }
 }

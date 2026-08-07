@@ -57,6 +57,7 @@ class PostPlanGenerator implements Agent, HasStructuredOutput
                     'post_visual_prompt' => $post->string()->description('Visual prompt that will be used to generate the poster design.')->required(),
                     'poster_size' => $post->string()->description('Poster dimensions format ex: 1080*1080.')->required(),
                     'scheduled_date' => $post->string()->description('Scheduled date formatted as YYYY-MM-DD.')->required(),
+                    'scheduled_time' => $post->string()->description('Scheduled time formatted as HH:MM (24h). Vary times to avoid conflicts with existing posts.')->required(),
                 ]))
                 ->min(1)
                 ->description('Structured array of planned poster posts.')

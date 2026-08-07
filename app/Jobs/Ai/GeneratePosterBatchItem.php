@@ -113,6 +113,7 @@ class GeneratePosterBatchItem implements ShouldQueue
         $hashtags = (string) data_get($planData, 'post_hashtags', '');
         $visualPrompt = (string) data_get($planData, 'post_visual_prompt', '');
         $scheduledDate = (string) data_get($planData, 'scheduled_date', '');
+        $scheduledTime = (string) data_get($planData, 'scheduled_time', '10:00');
 
         $fullContent = trim($description."\n\n".$hashtags);
 
@@ -157,11 +158,15 @@ class GeneratePosterBatchItem implements ShouldQueue
         }
 
         // Schedule Post
+        $timeParts = explode(':', $scheduledTime);
+        $hour = (int) ($timeParts[0] ?? 10);
+        $minute = (int) ($timeParts[1] ?? 0);
+
         $postData = [
             'content' => $fullContent,
             'media' => $mediaItem ? [$mediaItem] : [],
             'date' => $scheduledDate,
-            'scheduled_at' => Carbon::parse($scheduledDate, 'UTC')->setTime(10, 0)->utc()->toDateTimeString(),
+            'scheduled_at' => Carbon::parse($scheduledDate, 'UTC')->setTime($hour, $minute)->utc()->toDateTimeString(),
             'created_via' => CreatedVia::Ai,
         ];
 
