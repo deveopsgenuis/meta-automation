@@ -35,10 +35,10 @@ const currentYear = dayjs().year();
                         &copy; {{ currentYear }} TryPost. All rights reserved.
                     </p>
                     <nav class="flex gap-4 text-sm text-muted-foreground">
-                        <Link :href="route('privacy')" class="hover:text-foreground transition-colors">
+                        <Link href="/privacy" class="hover:text-foreground transition-colors">
                             {{ $t('privacy.page_title') }}
                         </Link>
-                        <Link :href="route('terms')" class="hover:text-foreground transition-colors">
+                        <Link href="/terms" class="hover:text-foreground transition-colors">
                             {{ $t('terms.page_title') }}
                         </Link>
                     </nav>
