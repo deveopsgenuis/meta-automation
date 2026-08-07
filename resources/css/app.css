@@ -167,3 +167,9 @@
   @apply relative max-w-7xl w-full flex-1 mx-auto flex flex-col justify-center;
 }
 
+/* RTL: move mobile sidebar trigger to the right */
+[dir="rtl"] [data-sidebar="trigger"] {
+  left: auto !important;
+  right: 1rem !important;
+}
+

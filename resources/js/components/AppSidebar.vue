@@ -75,6 +75,7 @@ const currentWorkspace = computed<Workspace | null>(() => page.props.auth.curren
 const workspaces = computed<Workspace[]>(() => page.props.auth.workspaces as Workspace[]);
 const subscriptionPastDue = computed<boolean>(() => Boolean(page.props.auth.subscriptionPastDue));
 const userAiCredit = computed<UserAiCredit | null>(() => (page.props.auth.user as any)?.user_ai_credit ?? null);
+const sidebarSide = computed(() => (document.documentElement.dir === 'rtl' ? 'right' : 'left') as 'left' | 'right');
 
 const { canCreatePost, canManageAccounts, canManageAutomations, canCreateWorkspace } = useWorkspaceRole();
 
@@ -182,7 +183,7 @@ const handleCreateWorkspace = () => {
 </script>
 
 <template>
-    <Sidebar collapsible="offcanvas">
+    <Sidebar collapsible="offcanvas" :side="sidebarSide">
         <SidebarHeader>
             <SidebarMenu>
                 <SidebarMenuItem>
