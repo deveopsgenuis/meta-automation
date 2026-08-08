@@ -23,6 +23,8 @@ class GeneratePosterDesignRequest extends FormRequest
             'system_prompt' => ['nullable', 'string'],
             'bulk' => ['nullable', 'boolean'],
             'provider' => ['nullable', 'string', 'in:openai,gemini'],
+            'reference_images' => ['nullable', 'array', 'max:6'],
+            'reference_images.*' => ['required', 'string'],
         ];
     }
 }

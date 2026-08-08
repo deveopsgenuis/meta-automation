@@ -28,6 +28,7 @@ class PosterDesignController extends Controller
         $bulk = $request->boolean('bulk', false);
         $systemPrompt = $request->string('system_prompt')->toString();
         $provider = $request->string('provider')->toString() ?: null;
+        $referenceImages = $request->input('reference_images', []);
 
         if ($bulk) {
             $prompts = (array) $request->input('prompts', []);
@@ -53,6 +54,7 @@ class PosterDesignController extends Controller
                     systemPrompt: $systemPrompt,
                     bulk: true,
                     provider: $provider,
+                    referenceImages: $referenceImages,
                 );
 
                 $items[] = [
@@ -81,6 +83,7 @@ class PosterDesignController extends Controller
             systemPrompt: $systemPrompt,
             bulk: false,
             provider: $provider,
+            referenceImages: $referenceImages,
         );
 
         $response = $this->runAgent($agent, $prompt);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, InfiniteScroll, Link, router, usePage } from '@inertiajs/vue3';
-import { IconCopy, IconCopyPlus, IconDots, IconFileText, IconSearch, IconTrash } from '@tabler/icons-vue';
+import { IconCopy, IconCopyPlus, IconDots, IconFileText, IconPhoto, IconSearch, IconTrash, IconX } from '@tabler/icons-vue';
 import { trans } from 'laravel-vue-i18n';
 import { computed, ref, watch } from 'vue';
 
@@ -160,6 +160,9 @@ const posterPrompt = ref('');
 const posterSystemPrompt = ref('');
 const posterMode = ref<'single' | 'bulk'>('single');
 const posterSubmitting = ref(false);
+const posterReferenceImages = ref<string[]>([]);
+
+const MAX_POSTER_IMAGES = 6;
 
 const page = usePage();
 
@@ -167,6 +170,7 @@ const openPosterDialog = () => {
     posterPrompt.value = '';
     posterSystemPrompt.value = '';
     posterMode.value = 'single';
+    posterReferenceImages.value = [];
     posterDialogOpen.value = true;
 };
 
@@ -189,6 +193,7 @@ const submitPosterRequest = async () => {
                 prompt: posterPrompt.value.trim(),
                 system_prompt: posterSystemPrompt.value.trim(),
                 bulk: posterMode.value === 'bulk',
+                reference_images: posterReferenceImages.value.length > 0 ? posterReferenceImages.value : undefined,
             }),
         });
 
@@ -200,6 +205,33 @@ const submitPosterRequest = async () => {
     } finally {
         posterSubmitting.value = false;
     }
+};
+
+const handlePosterImageUpload = (event: Event) => {
+    const input = event.target as HTMLInputElement;
+    const files = input.files;
+    if (!files) return;
+
+    const remainingSlots = MAX_POSTER_IMAGES - posterReferenceImages.value.length;
+    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+
+    for (const file of filesToProcess) {
+        if (!file.type.startsWith('image/')) continue;
+        if (file.size > 10 * 1024 * 1024) continue;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64 = e.target?.result as string;
+            posterReferenceImages.value.push(base64);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    input.value = '';
+};
+
+const removePosterImage = (index: number) => {
+    posterReferenceImages.value.splice(index, 1);
 };
 
 const postUrl = (post: Post): string =>
@@ -429,6 +461,49 @@ useWorkspaceEcho(
                         :placeholder="$t('calendar.poster_dialog.system_prompt_placeholder')"
                         rows="4"
                     />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label>{{ $t('calendar.poster_dialog.reference_images') }}</Label>
+                    <p class="text-xs text-muted-foreground">{{ $t('calendar.poster_dialog.reference_images_hint') }}</p>
+
+                    <div v-if="posterReferenceImages.length > 0" class="flex flex-wrap gap-3">
+                        <div
+                            v-for="(image, index) in posterReferenceImages"
+                            :key="index"
+                            class="group relative size-24 overflow-hidden rounded-lg border-2 border-foreground/10"
+                        >
+                            <img
+                                :src="image"
+                                :alt="`Reference ${index + 1}`"
+                                class="size-full object-cover"
+                            />
+                            <button
+                                type="button"
+                                class="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                @click="removePosterImage(index)"
+                            >
+                                <IconX class="size-3" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <label
+                        v-if="posterReferenceImages.length < MAX_POSTER_IMAGES"
+                        class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-foreground/20 bg-muted/30 p-4 transition-colors hover:bg-muted/50"
+                    >
+                        <IconPhoto class="size-8 text-foreground/40" />
+                        <span class="text-xs font-medium text-foreground/60">
+                            {{ $t('calendar.poster_dialog.add_images') }} ({{ posterReferenceImages.length }}/{{ MAX_POSTER_IMAGES }})
+                        </span>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            class="hidden"
+                            @change="handlePosterImageUpload"
+                        />
+                    </label>
                 </div>
 
                 <div class="grid gap-2">

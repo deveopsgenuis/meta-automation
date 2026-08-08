@@ -6,6 +6,11 @@ System instruction:
 User request:
 {{ $prompt ?: 'Generate a compelling poster design concept.' }}
 
+@if(count($reference_images) > 0)
+Reference images:
+The user has provided {{ count($reference_images) }} reference image(s) as visual guidance. Analyze these images carefully and incorporate their visual style, color palette, composition, mood, and any distinctive elements into your poster design. Use the reference images as inspiration to create a cohesive and aligned design that matches the user's visual intent.
+@endif
+
 IMPORTANT — this is a real, finished poster with text and graphics baked in, not a plain background photo waiting for text overlay. Design it like an actual print/social ad: logo or brand mark placement, a bold headline, supporting copy, and structured info blocks (icon + label callouts, price/date/duration boxes, footer photo strip, badges) where relevant to the request — similar to a professional travel/event/product flyer.
 
 Be creative and specific — avoid generic descriptions like "modern and clean." Ground every choice in mood, subject, and purpose. When multiple concepts are requested, make each one genuinely distinct in layout, composition, palette, and style — not variations of the same idea.
@@ -25,6 +30,9 @@ Requirements:
 - When bulk, provide 2-4 varied concepts, each with a different visual approach.
 - If single, provide exactly one concept.
 - The "prompt" field must be a vivid, production-ready AI image generation prompt describing the FULL finished poster (subject, text content, layout, icons/badges, typography, colors, composition) written in English, but explicitly instructing the model to render the on-poster text in {{ $content_language }}.
+@if(count($reference_images) > 0)
+- When reference images are provided, the prompt should explicitly reference the visual style and elements from those images to maintain consistency.
+@endif
 
 Output shape:
 - Single mode: return an object with image.title, image.description, image.prompt, and image.style.

@@ -24,6 +24,7 @@ class PosterDesignGenerator implements Agent, HasStructuredOutput
         public bool $bulk = false,
         public ?string $provider = null,
         public ?string $model = null,
+        public array $referenceImages = [],
     ) {}
 
     public function instructions(): string
@@ -33,6 +34,7 @@ class PosterDesignGenerator implements Agent, HasStructuredOutput
             'system_prompt' => $this->systemPrompt,
             'content_language' => $this->workspace->content_language ?: 'en',
             'bulk' => $this->bulk,
+            'reference_images' => $this->referenceImages,
         ])->render();
     }
 
