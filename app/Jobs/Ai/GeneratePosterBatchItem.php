@@ -120,10 +120,23 @@ class GeneratePosterBatchItem implements ShouldQueue
         // Get reference images from batch
         $referenceImages = $batch->reference_images ?? [];
 
+        Log::info('GeneratePosterBatchItem: processing item', [
+            'item_id' => $item->id,
+            'batch_id' => $batch->id,
+            'has_reference_images' => count($referenceImages) > 0,
+            'reference_images_count' => count($referenceImages),
+        ]);
+
         // Generate image via AI
         $imagePath = $this->generatePosterImage($workspace, $visualPrompt, $referenceImages);
 
         UserAiCreditService::consumeImage($user);
+
+        Log::info('GeneratePosterBatchItem: image generation result', [
+            'item_id' => $item->id,
+            'image_path' => $imagePath,
+            'image_exists' => $imagePath ? Storage::disk('public')->exists($imagePath) : false,
+        ]);
 
         // Attach image to media collection
         $mediaItem = null;
@@ -140,6 +153,7 @@ class GeneratePosterBatchItem implements ShouldQueue
 
                 Log::info('GeneratePosterBatchItem: Media created', [
                     'media_id' => $mediaRecord->id,
+                    'media_path' => $mediaRecord->path,
                     'image_path' => $imagePath,
                 ]);
             } catch (Throwable $e) {
@@ -152,12 +166,16 @@ class GeneratePosterBatchItem implements ShouldQueue
 
             $mediaItem = [
                 'id' => $mediaRecord->id,
-                'path' => $imageRecordPath = $mediaRecord->path,
-                'url' => Storage::disk('public')->url($imageRecordPath),
+                'path' => $mediaRecord->path,
+                'url' => Storage::disk('public')->url($mediaRecord->path),
                 'type' => 'image',
                 'mime_type' => 'image/png',
                 'source' => Source::Ai->value,
             ];
+
+            Log::info('GeneratePosterBatchItem: media item prepared', [
+                'media_item' => $mediaItem,
+            ]);
         }
 
         // Schedule Post
@@ -183,13 +201,17 @@ class GeneratePosterBatchItem implements ShouldQueue
 
         Log::info('GeneratePosterBatchItem: Creating post', [
             'item_id' => $item->id,
-            'post_data' => $postData,
+            'has_media' => isset($postData['media']) && count($postData['media']) > 0,
+            'media_count' => isset($postData['media']) ? count($postData['media']) : 0,
+            'post_data_keys' => array_keys($postData),
         ]);
 
         $post = CreatePost::execute($workspace, $user, $postData);
 
         Log::info('GeneratePosterBatchItem: Post created', [
             'post_id' => $post->id,
+            'post_media' => $post->media,
+            'post_has_media' => ! empty($post->media),
         ]);
 
         $post->update(['status' => PostStatus::Scheduled]);
@@ -238,6 +260,8 @@ class GeneratePosterBatchItem implements ShouldQueue
     private function generatePosterImage($workspace, string $visualPrompt, array $referenceImages = []): ?string
     {
         if (trim($visualPrompt) === '') {
+            Log::info('GeneratePosterBatchItem: empty visual prompt, skipping image generation');
+
             return null;
         }
 
@@ -249,30 +273,38 @@ class GeneratePosterBatchItem implements ShouldQueue
                 $enhancedPrompt .= '. Reference the provided images for visual style, color palette, composition, and mood. Maintain consistency with the visual direction shown in the reference images.';
             }
 
-            $imageBuilder = Image::of($enhancedPrompt)
+            Log::info('GeneratePosterBatchItem: generating image', [
+                'prompt_length' => strlen($enhancedPrompt),
+                'has_references' => count($referenceImages) > 0,
+                'model' => config('ai.default_image_model'),
+            ]);
+
+            $response = Image::of($enhancedPrompt)
                 ->square()
                 ->quality('low')
-                ->timeout(120);
-
-            // Note: Reference images are passed as base64 data in the prompt enhancement
-            // The actual image-to-image functionality depends on the AI provider's API support
-            // For now, we enhance the prompt to guide the generation based on reference images
-
-            $response = $imageBuilder->generate(model: config('ai.default_image_model'));
+                ->timeout(120)
+                ->generate(model: config('ai.default_image_model'));
 
             $bytes = (string) $response;
 
             if ($bytes === '') {
+                Log::warning('GeneratePosterBatchItem: empty response from image generation');
+
                 return null;
             }
 
             $filename = 'posters/'.Str::uuid().'.png';
             Storage::disk('public')->put($filename, $bytes);
 
+            Log::info('GeneratePosterBatchItem: image saved', [
+                'filename' => $filename,
+                'size' => strlen($bytes),
+            ]);
+
             return $filename;
         } catch (Throwable $e) {
-            Log::warning('GeneratePosterBatchItem: image generation failed', [
-                'prompt' => $visualPrompt,
+            Log::error('GeneratePosterBatchItem: image generation failed', [
+                'prompt' => substr($visualPrompt, 0, 200),
                 'has_references' => count($referenceImages) > 0,
                 'error' => $e->getMessage(),
             ]);
