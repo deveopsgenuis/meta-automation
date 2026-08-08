@@ -21,6 +21,7 @@ class PosterBatch extends Model
         'user_id',
         'social_account_id',
         'plan',
+        'reference_images',
         'status',
         'total_items',
         'completed_items',
@@ -31,6 +32,7 @@ class PosterBatch extends Model
     {
         return [
             'plan' => 'array',
+            'reference_images' => 'array',
             'total_items' => 'integer',
             'completed_items' => 'integer',
             'failed_items' => 'integer',

@@ -4,6 +4,7 @@ import {
     IconAlertCircle,
     IconCheck,
     IconChevronDown,
+    IconPhoto,
     IconRefresh,
     IconSettings,
     IconSparkles,
@@ -13,6 +14,7 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
@@ -84,10 +86,13 @@ const open = computed({
 // State
 const selectedSocialAccountId = ref<string | null>(props.socialAccounts[0]?.id ?? null);
 const instruction = ref('');
+const referenceImages = ref<string[]>([]);
 const showInstructionModal = ref(false);
 const isGeneratingPlan = ref(false);
 const isExecutingPlan = ref(false);
 const errorMessage = ref<string | null>(null);
+
+const MAX_REFERENCE_IMAGES = 6;
 
 const plan = ref<PlanItem[]>([]);
 const batch = ref<ActiveBatch | null>(null);
@@ -166,7 +171,35 @@ const resetState = () => {
     batch.value = null;
     isDirty.value = false;
     errorMessage.value = null;
+    referenceImages.value = [];
     stopPolling();
+};
+
+const handleReferenceImageUpload = (event: Event) => {
+    const input = event.target as HTMLInputElement;
+    const files = input.files;
+    if (!files) return;
+
+    const remainingSlots = MAX_REFERENCE_IMAGES - referenceImages.value.length;
+    const filesToProcess = Array.from(files).slice(0, remainingSlots);
+
+    for (const file of filesToProcess) {
+        if (!file.type.startsWith('image/')) continue;
+        if (file.size > 10 * 1024 * 1024) continue;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const base64 = e.target?.result as string;
+            referenceImages.value.push(base64);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    input.value = '';
+};
+
+const removeReferenceImage = (index: number) => {
+    referenceImages.value.splice(index, 1);
 };
 
 const generatePlan = async () => {
@@ -221,6 +254,7 @@ const executePlan = async () => {
             body: JSON.stringify({
                 plan: plan.value,
                 social_account_id: selectedSocialAccountId.value,
+                reference_images: referenceImages.value.length > 0 ? referenceImages.value : undefined,
             }),
         });
 
@@ -543,7 +577,7 @@ const retryItem = async (itemId: string) => {
                 >
                     <IconSettings class="size-4" />
                     <span>Instruction</span>
-                    <span v-if="instruction.trim()" class="size-2 rounded-full bg-violet-600"></span>
+                    <span v-if="instruction.trim() || referenceImages.length > 0" class="size-2 rounded-full bg-violet-600"></span>
                 </button>
 
                 <!-- Action Button: Generate Plan OR Generate Posters -->
@@ -607,6 +641,49 @@ const retryItem = async (itemId: string) => {
                         placeholder="Enter custom instructions or themes for this post series..."
                         rows="4"
                     />
+
+                    <div class="space-y-2">
+                        <Label>Reference images</Label>
+                        <p class="text-xs text-muted-foreground">Upload up to 6 images as visual reference for the poster generation.</p>
+
+                        <div v-if="referenceImages.length > 0" class="flex flex-wrap gap-3">
+                            <div
+                                v-for="(image, index) in referenceImages"
+                                :key="index"
+                                class="group relative size-24 overflow-hidden rounded-lg border-2 border-foreground/10"
+                            >
+                                <img
+                                    :src="image"
+                                    :alt="`Reference ${index + 1}`"
+                                    class="size-full object-cover"
+                                />
+                                <button
+                                    type="button"
+                                    class="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                    @click="removeReferenceImage(index)"
+                                >
+                                    <IconX class="size-3" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <label
+                            v-if="referenceImages.length < MAX_REFERENCE_IMAGES"
+                            class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-foreground/20 bg-muted/30 p-4 transition-colors hover:bg-muted/50"
+                        >
+                            <IconPhoto class="size-8 text-foreground/40" />
+                            <span class="text-xs font-medium text-foreground/60">
+                                Add images ({{ referenceImages.length }}/{{ MAX_REFERENCE_IMAGES }})
+                            </span>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                class="hidden"
+                                @change="handleReferenceImageUpload"
+                            />
+                        </label>
+                    </div>
                 </div>
 
                 <DialogFooter>

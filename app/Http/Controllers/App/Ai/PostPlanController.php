@@ -110,12 +110,14 @@ class PostPlanController extends Controller
 
         $plan = (array) $request->input('plan', []);
         $socialAccountId = $request->input('social_account_id');
+        $referenceImages = $request->input('reference_images', []);
 
         $batch = PosterBatch::query()->create([
             'workspace_id' => $workspace->id,
             'user_id' => $request->user()->id,
             'social_account_id' => $socialAccountId,
             'plan' => $plan,
+            'reference_images' => $referenceImages,
             'status' => 'generating',
             'total_items' => count($plan),
             'completed_items' => 0,
