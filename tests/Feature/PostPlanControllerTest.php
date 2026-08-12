@@ -10,7 +10,6 @@ use App\Models\PosterBatchItem;
 use App\Models\SocialAccount;
 use App\Models\User;
 use App\Models\Workspace;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {

@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Ai\Agents\PosterDesignGenerator;
 use App\Models\User;
 use App\Models\Workspace;
-use Illuminate\Support\Facades\Bus;
 use Symfony\Component\HttpFoundation\Response;
 
 beforeEach(function () {

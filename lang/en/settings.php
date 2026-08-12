@@ -140,6 +140,11 @@ return [
         'name' => 'Name',
         'name_placeholder' => 'My Workspace',
         'save' => 'Save',
+        'delete_modal' => [
+            'title' => 'Delete workspace',
+            'description' => 'Are you sure you want to delete this workspace? This action cannot be undone. All posts, social accounts, and other data will be permanently deleted.',
+            'action' => 'Delete workspace',
+        ],
     ],
 
     'brand' => [
