@@ -21,12 +21,17 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Laravel\Ai\Files\Base64Image;
+use Laravel\Ai\Files\Image as AiImageFile;
+use Laravel\Ai\Files\LocalImage;
+use Laravel\Ai\Files\StoredImage;
 use Laravel\Ai\Image;
 use Throwable;
 
 class GeneratePosterBatchItem implements ShouldQueue
 {
+    /** @var array<int, string> */
+    private array $temporaryReferenceImagePaths = [];
+
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 2;
@@ -330,6 +335,8 @@ class GeneratePosterBatchItem implements ShouldQueue
             ]);
 
             return null;
+        } finally {
+            $this->deleteTemporaryReferenceImages();
         }
     }
 
@@ -337,7 +344,7 @@ class GeneratePosterBatchItem implements ShouldQueue
      * Parse a reference image that may be a file path (medias/xxx.jpg), Media UUID,
      * browser-produced data URI (data:image/png;base64,...), or raw base64 string.
      */
-    private function parseReferenceImage(string $input): ?Base64Image
+    private function parseReferenceImage(string $input): StoredImage|LocalImage|null
     {
         if (trim($input) === '') {
             return null;
@@ -345,32 +352,6 @@ class GeneratePosterBatchItem implements ShouldQueue
 
         $input = trim($input);
 
-        // 1. Check if $input is a stored file path (e.g. "medias/xxxx.jpg")
-        if (Storage::exists($input) || Storage::disk('public')->exists($input)) {
-            $disk = Storage::exists($input) ? Storage::disk() : Storage::disk('public');
-            $bytes = $disk->get($input);
-            $mimeType = $disk->mimeType($input) ?: 'image/jpeg';
-            $base64 = base64_encode($bytes);
-
-            return \Laravel\Ai\Files\Image::fromBase64($base64, $mimeType);
-        }
-
-        // 2. Check if $input is a Media record ID
-        if (Str::isUuid($input)) {
-            $media = Media::query()->find($input);
-            if ($media) {
-                $disk = Storage::exists($media->path) ? Storage::disk() : (Storage::disk('public')->exists($media->path) ? Storage::disk('public') : null);
-                if ($disk) {
-                    $bytes = $disk->get($media->path);
-                    $mimeType = $media->mime_type ?: ($disk->mimeType($media->path) ?: 'image/jpeg');
-                    $base64 = base64_encode($bytes);
-
-                    return \Laravel\Ai\Files\Image::fromBase64($base64, $mimeType);
-                }
-            }
-        }
-
-        // 3. Fallback: Handle browser data URIs: data:<mime>;base64,<data>
         if (str_starts_with($input, 'data:')) {
             if (! preg_match('/^data:([a-zA-Z0-9\/+\-]+);base64,(.+)$/s', $input, $matches)) {
                 Log::warning('GeneratePosterBatchItem: unparseable data URI, skipping reference image');
@@ -378,10 +359,74 @@ class GeneratePosterBatchItem implements ShouldQueue
                 return null;
             }
 
-            return \Laravel\Ai\Files\Image::fromBase64($matches[2], $matches[1]);
+            return $this->temporaryReferenceImage($matches[2], $matches[1]);
         }
 
-        // 4. Fallback: Raw base64 string
-        return \Laravel\Ai\Files\Image::fromBase64($input);
+        if (Storage::exists($input)) {
+            return AiImageFile::fromStorage($input, config('filesystems.default'));
+        }
+
+        if (Storage::disk('public')->exists($input)) {
+            return AiImageFile::fromStorage($input, 'public');
+        }
+
+        if (Str::isUuid($input)) {
+            $media = Media::query()->find($input);
+
+            if ($media && Storage::exists($media->path)) {
+                return AiImageFile::fromStorage($media->path, config('filesystems.default'));
+            }
+
+            if ($media && Storage::disk('public')->exists($media->path)) {
+                return AiImageFile::fromStorage($media->path, 'public');
+            }
+        }
+
+        return $this->temporaryReferenceImage($input, 'image/jpeg');
+    }
+
+    private function temporaryReferenceImage(string $base64, string $mimeType): ?LocalImage
+    {
+        $bytes = base64_decode($base64, true);
+
+        if ($bytes === false) {
+            Log::warning('GeneratePosterBatchItem: invalid base64 reference image, skipping');
+
+            return null;
+        }
+
+        $extension = match ($mimeType) {
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            default => 'jpg',
+        };
+
+        $path = tempnam(sys_get_temp_dir(), 'poster-reference-');
+
+        if ($path === false) {
+            Log::warning('GeneratePosterBatchItem: unable to create temporary reference image');
+
+            return null;
+        }
+
+        $imagePath = $path.'.'.$extension;
+        rename($path, $imagePath);
+        file_put_contents($imagePath, $bytes);
+
+        $this->temporaryReferenceImagePaths[] = $imagePath;
+
+        return AiImageFile::fromPath($imagePath, $mimeType);
+    }
+
+    private function deleteTemporaryReferenceImages(): void
+    {
+        foreach ($this->temporaryReferenceImagePaths as $path) {
+            if (is_file($path)) {
+                @unlink($path);
+            }
+        }
+
+        $this->temporaryReferenceImagePaths = [];
     }
 }
