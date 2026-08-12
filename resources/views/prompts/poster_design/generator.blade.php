@@ -7,8 +7,14 @@ User request:
 {{ $prompt ?: 'Generate a compelling poster design concept.' }}
 
 @if(count($reference_images) > 0)
-Reference images:
-The user has provided {{ count($reference_images) }} reference image(s) as visual guidance. Analyze these images carefully and incorporate their visual style, color palette, composition, mood, and any distinctive elements into your poster design. Use the reference images as inspiration to create a cohesive and aligned design that matches the user's visual intent.
+Reference media provided:
+The user has supplied {{ count($reference_images) }} image(s) alongside this request. Carefully examine the intent behind the user request to determine how these images should be used:
+
+1. **Exact inclusion (logos, brand marks, product images, "use this image"):** If the user's instruction implies the image should appear verbatim in the poster — e.g. "use this logo", "include this product image", "use the provided media", "here is the brand asset" — then that asset MUST be embedded exactly as provided. In your image generation prompt, explicitly instruct the image model to reproduce those assets faithfully without any stylization, reinterpretation, color shift, or artistic transformation. Treat the asset as a locked element to composite into the design.
+
+2. **Style reference only ("inspired by", "same mood as"):** If the user's instruction implies the image is only a visual mood/style guide, use it as inspiration for palette, composition, and atmosphere — but do not reproduce the image literally.
+
+When in doubt (e.g. "use this media to create a poster"), default to treating the provided image as an **exact asset to include** — embed it in the poster as-is and build the design around it.
 @endif
 
 IMPORTANT — this is a real, finished poster with text and graphics baked in, not a plain background photo waiting for text overlay. Design it like an actual print/social ad: logo or brand mark placement, a bold headline, supporting copy, and structured info blocks (icon + label callouts, price/date/duration boxes, footer photo strip, badges) where relevant to the request — similar to a professional travel/event/product flyer.
@@ -31,7 +37,7 @@ Requirements:
 - If single, provide exactly one concept.
 - The "prompt" field must be a vivid, production-ready AI image generation prompt describing the FULL finished poster (subject, text content, layout, icons/badges, typography, colors, composition) written in English, but explicitly instructing the model to render the on-poster text in {{ $content_language }}.
 @if(count($reference_images) > 0)
-- When reference images are provided, the prompt should explicitly reference the visual style and elements from those images to maintain consistency.
+- CRITICAL: When the provided images are logos, brand marks, or assets the user wants embedded verbatim, the "prompt" field MUST explicitly instruct the image model: "Use the provided reference image exactly as-is — do not stylize, distort, recolor, or reinterpret the asset. Composite it into the poster design faithfully." This instruction must appear in the prompt whenever the user's intent is to include the image exactly.
 @endif
 
 Output shape:

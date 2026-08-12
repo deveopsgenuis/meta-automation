@@ -272,7 +272,13 @@ class GeneratePosterBatchItem implements ShouldQueue
                 'model' => config('ai.default_image_model'),
             ]);
 
-            $imageBuilder = Image::of($visualPrompt)
+            $effectivePrompt = $visualPrompt;
+
+            if (count($referenceImages) > 0) {
+                $effectivePrompt = 'IMPORTANT: The reference image(s) attached are exact assets (logos, brand marks, product images, or media) that must appear in the poster exactly as provided — do not stylize, recolor, distort, or reinterpret them in any way. Composite them faithfully into the design as locked elements. '.$visualPrompt;
+            }
+
+            $imageBuilder = Image::of($effectivePrompt)
                 ->square()
                 ->quality('low')
                 ->timeout(120);
