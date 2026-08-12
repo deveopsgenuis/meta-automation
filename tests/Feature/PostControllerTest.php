@@ -952,46 +952,46 @@ test('failed posts render show without redirecting to edit', function () {
 });
 
 test('destroy deletes published posts and removes from social platforms', function () {
-        foreach ([PostStatus::Published, PostStatus::PartiallyPublished] as $status) {
-            $post = Post::factory()->create([
-                'workspace_id' => $this->workspace->id,
-                'user_id' => $this->user->id,
-                'status' => $status,
-            ]);
-
-            // Create a post platform that's published with a platform_post_id
-            $postPlatform = PostPlatform::factory()->create([
-                'post_id' => $post->id,
-                'social_account_id' => $this->socialAccount->id,
-                'enabled' => true,
-                'status' => Status::Published,
-                'platform_post_id' => 'test-post-id-123',
-            ]);
-
-            $this->actingAs($this->user)
-                ->delete(route('app.posts.destroy', $post))
-                ->assertRedirect();
-
-            // Published posts CAN now be deleted
-            expect(Post::find($post->id))->toBeNull();
-        }
-    });
-
-    test('destroy blocks deleting posts in publishing state', function () {
+    foreach ([PostStatus::Published, PostStatus::PartiallyPublished] as $status) {
         $post = Post::factory()->create([
             'workspace_id' => $this->workspace->id,
             'user_id' => $this->user->id,
-            'status' => PostStatus::Publishing,
+            'status' => $status,
+        ]);
+
+        // Create a post platform that's published with a platform_post_id
+        $postPlatform = PostPlatform::factory()->create([
+            'post_id' => $post->id,
+            'social_account_id' => $this->socialAccount->id,
+            'enabled' => true,
+            'status' => Status::Published,
+            'platform_post_id' => 'test-post-id-123',
         ]);
 
         $this->actingAs($this->user)
             ->delete(route('app.posts.destroy', $post))
-            ->assertRedirect()
-            ->assertSessionHas('flash.banner', __('posts.flash.cannot_delete_published'));
+            ->assertRedirect();
 
-        // Publishing posts cannot be deleted
-        expect(Post::find($post->id))->not()->toBeNull();
-    });
+        // Published posts CAN now be deleted
+        expect(Post::find($post->id))->toBeNull();
+    }
+});
+
+test('destroy blocks deleting posts in publishing state', function () {
+    $post = Post::factory()->create([
+        'workspace_id' => $this->workspace->id,
+        'user_id' => $this->user->id,
+        'status' => PostStatus::Publishing,
+    ]);
+
+    $this->actingAs($this->user)
+        ->delete(route('app.posts.destroy', $post))
+        ->assertRedirect()
+        ->assertSessionHas('flash.banner', __('posts.flash.cannot_delete_published'));
+
+    // Publishing posts cannot be deleted
+    expect(Post::find($post->id))->not()->toBeNull();
+});
 
 test('show page returns 404 for post in another workspace', function () {
     $otherWorkspace = Workspace::factory()->create();
