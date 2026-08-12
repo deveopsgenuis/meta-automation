@@ -18,14 +18,10 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Laravel\Ai\Files\Base64Image;
-use Laravel\Ai\Files\Image as AiImageFile;
-use Laravel\Ai\Files\LocalImage;
-use Laravel\Ai\Files\StoredImage;
-use Laravel\Ai\Image;
 use Throwable;
 
 class GeneratePosterBatchItem implements ShouldQueue
@@ -275,175 +271,200 @@ class GeneratePosterBatchItem implements ShouldQueue
         }
 
         try {
+            $model = (string) config('ai.default_image_model');
+
             Log::info('GeneratePosterBatchItem: generating image', [
                 'prompt_length' => strlen($visualPrompt),
                 'has_references' => count($referenceImages) > 0,
-                'model' => config('ai.default_image_model'),
+                'model' => $model,
             ]);
 
             $effectivePrompt = $visualPrompt;
 
             if (count($referenceImages) > 0) {
-                $effectivePrompt = 'IMPORTANT: The reference image(s) attached are exact assets (logos, brand marks, product images, or media) that must appear in the poster exactly as provided — do not stylize, recolor, distort, or reinterpret them in any way. Composite them faithfully into the design as locked elements. '.$visualPrompt;
+                $effectivePrompt = 'IMPORTANT: The reference image(s) attached are exact assets (logos, brand marks, product images, or media) that must appear in the poster exactly as provided - do not stylize, recolor, distort, or reinterpret them in any way. Composite them faithfully into the design as locked elements. '.$visualPrompt;
             }
 
-            $imageBuilder = Image::of($effectivePrompt)
-                ->square()
-                ->quality('low')
-                ->timeout(120);
+            $payload = array_filter([
+                'model' => $model,
+                'prompt' => $effectivePrompt,
+                'resolution' => '1K',
+                'aspect_ratio' => '1:1',
+                'quality' => 'low',
+                'n' => 1,
+                'input_references' => $this->formatReferenceImages($referenceImages),
+            ], fn (mixed $value) => $value !== null && $value !== []);
 
-            if (count($referenceImages) > 0) {
-                $attachments = array_filter(array_map(
-                    fn (mixed $referenceImage) => $this->parseReferenceImage($referenceImage),
-                    $referenceImages,
-                ));
-
-                if (count($attachments) > 0) {
-                    Log::info('GeneratePosterBatchItem: attaching reference images', [
-                        'attachment_classes' => array_map(fn (object $attachment) => $attachment::class, array_values($attachments)),
-                    ]);
-
-                    $imageBuilder->attachments(array_values($attachments));
-                }
-            }
-
-            $response = $imageBuilder->generate(model: config('ai.default_image_model'));
-
-            $image = $response->firstImage();
-
-            if ($image->content() === '') {
-                Log::warning('GeneratePosterBatchItem: empty response from image generation');
-
-                return null;
-            }
-
-            $filename = $response->store('posters', 'public');
-
-            if ($filename === false) {
-                Log::warning('GeneratePosterBatchItem: failed to store image');
-
-                return null;
-            }
-
-            Log::info('GeneratePosterBatchItem: image saved', [
-                'filename' => $filename,
-                'mime' => $image->mime,
-                'size' => strlen($image->content()),
+            Log::info('GeneratePosterBatchItem: sending request to OpenRouter', [
+                'payload_keys' => array_keys($payload),
+                'has_references' => isset($payload['input_references']),
+                'reference_count' => isset($payload['input_references']) ? count($payload['input_references']) : 0,
             ]);
 
-            return $filename;
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer '.config('services.openai.api_key'),
+                'Content-Type' => 'application/json',
+                'HTTP-Referer' => config('app.url'),
+                'X-Title' => config('app.name'),
+            ])
+                ->acceptJson()
+                ->asJson()
+                ->connectTimeout(30)
+                ->timeout(180)
+                ->retry(2, 1000)
+                ->post('https://openrouter.ai/api/v1/images', $payload);
+
+            if (! $response->successful()) {
+                Log::error('GeneratePosterBatchItem: OpenRouter API error', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return null;
+            }
+
+            $result = $response->json();
+            $base64Image = (string) data_get($result, 'data.0.b64_json', '');
+
+            if ($base64Image === '') {
+                Log::warning('GeneratePosterBatchItem: no b64_json in OpenRouter response', [
+                    'response_keys' => is_array($result) ? array_keys($result) : [],
+                ]);
+
+                return null;
+            }
+
+            if (str_starts_with($base64Image, 'data:')) {
+                $base64Image = (string) Str::of($base64Image)->after(',');
+            }
+
+            $imageBytes = base64_decode($base64Image, true);
+
+            if ($imageBytes === false) {
+                Log::warning('GeneratePosterBatchItem: failed to decode OpenRouter image');
+
+                return null;
+            }
+
+            $mediaType = (string) data_get($result, 'data.0.media_type', 'image/png');
+            $extension = match ($mediaType) {
+                'image/jpeg', 'image/jpg' => 'jpg',
+                'image/gif' => 'gif',
+                'image/webp' => 'webp',
+                default => 'png',
+            };
+            $path = 'posters/poster-'.Str::uuid().'.'.$extension;
+
+            Storage::disk('public')->put($path, $imageBytes);
+
+            Log::info('GeneratePosterBatchItem: image saved', [
+                'path' => $path,
+                'media_type' => $mediaType,
+                'size' => strlen($imageBytes),
+            ]);
+
+            return $path;
         } catch (Throwable $e) {
             Log::error('GeneratePosterBatchItem: image generation failed', [
                 'prompt' => substr($visualPrompt, 0, 200),
                 'has_references' => count($referenceImages) > 0,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return null;
-        } finally {
-            $this->deleteTemporaryReferenceImages();
         }
     }
 
     /**
-     * Parse a reference image that may be a file path (medias/xxx.jpg), Media UUID,
-     * browser-produced data URI (data:image/png;base64,...), or raw base64 string.
+     * @param  array<int, mixed>  $referenceImages
+     * @return array<int, array{type: string, image_url: array{url: string}}>
      */
-    private function parseReferenceImage(mixed $input): StoredImage|LocalImage|null
+    private function formatReferenceImages(array $referenceImages): array
     {
-        if ($input instanceof StoredImage || $input instanceof LocalImage) {
-            return $input;
+        return array_values(array_filter(array_map(
+            fn (mixed $referenceImage) => $this->formatReferenceImage($referenceImage),
+            $referenceImages,
+        )));
+    }
+
+    /**
+     * @return array{type: string, image_url: array{url: string}}|null
+     */
+    private function formatReferenceImage(mixed $reference): ?array
+    {
+        if (is_array($reference)) {
+            $url = data_get($reference, 'image_url.url', data_get($reference, 'url'));
+
+            if (is_string($url) && str_starts_with($url, 'data:')) {
+                return $this->openRouterImageReference($url);
+            }
+
+            $reference = $url;
         }
 
-        if ($input instanceof Base64Image) {
-            return $this->temporaryReferenceImage($input->base64, $input->mimeType() ?? 'image/jpeg');
-        }
-
-        if (is_array($input)) {
-            $input = data_get($input, 'image_url.url', data_get($input, 'url'));
-        }
-
-        if (! is_string($input) || trim($input) === '') {
+        if (! is_string($reference) || trim($reference) === '') {
             return null;
         }
 
-        $input = trim($input);
+        $reference = trim($reference);
 
-        if (str_starts_with($input, 'data:')) {
-            if (! preg_match('/^data:([a-zA-Z0-9\/+\-]+);base64,(.+)$/s', $input, $matches)) {
-                Log::warning('GeneratePosterBatchItem: unparseable data URI, skipping reference image');
-
-                return null;
-            }
-
-            return $this->temporaryReferenceImage($matches[2], $matches[1]);
+        if (str_starts_with($reference, 'data:')) {
+            return $this->openRouterImageReference($reference);
         }
 
-        if (Storage::exists($input)) {
-            return AiImageFile::fromStorage($input, config('filesystems.default'));
+        if (Storage::exists($reference)) {
+            return $this->storedImageReference($reference, config('filesystems.default'));
         }
 
-        if (Storage::disk('public')->exists($input)) {
-            return AiImageFile::fromStorage($input, 'public');
+        if (Storage::disk('public')->exists($reference)) {
+            return $this->storedImageReference($reference, 'public');
         }
 
-        if (Str::isUuid($input)) {
-            $media = Media::query()->find($input);
+        if (Str::isUuid($reference)) {
+            $media = Media::query()->find($reference);
 
             if ($media && Storage::exists($media->path)) {
-                return AiImageFile::fromStorage($media->path, config('filesystems.default'));
+                return $this->storedImageReference($media->path, config('filesystems.default'), $media->mime_type);
             }
 
             if ($media && Storage::disk('public')->exists($media->path)) {
-                return AiImageFile::fromStorage($media->path, 'public');
+                return $this->storedImageReference($media->path, 'public', $media->mime_type);
             }
         }
 
-        return $this->temporaryReferenceImage($input, 'image/jpeg');
+        if (base64_decode($reference, true) !== false) {
+            return $this->openRouterImageReference('data:image/jpeg;base64,'.$reference);
+        }
+
+        Log::warning('GeneratePosterBatchItem: unable to format reference image', [
+            'reference_prefix' => substr($reference, 0, 50),
+        ]);
+
+        return null;
     }
 
-    private function temporaryReferenceImage(string $base64, string $mimeType): ?LocalImage
+    /**
+     * @return array{type: string, image_url: array{url: string}}
+     */
+    private function storedImageReference(string $path, string $disk, ?string $mimeType = null): array
     {
-        $bytes = base64_decode($base64, true);
+        $diskInstance = Storage::disk($disk);
+        $mimeType ??= $diskInstance->mimeType($path) ?: 'image/jpeg';
 
-        if ($bytes === false) {
-            Log::warning('GeneratePosterBatchItem: invalid base64 reference image, skipping');
-
-            return null;
-        }
-
-        $extension = match ($mimeType) {
-            'image/png' => 'png',
-            'image/gif' => 'gif',
-            'image/webp' => 'webp',
-            default => 'jpg',
-        };
-
-        $path = tempnam(sys_get_temp_dir(), 'poster-reference-');
-
-        if ($path === false) {
-            Log::warning('GeneratePosterBatchItem: unable to create temporary reference image');
-
-            return null;
-        }
-
-        $imagePath = $path.'.'.$extension;
-        rename($path, $imagePath);
-        file_put_contents($imagePath, $bytes);
-
-        $this->temporaryReferenceImagePaths[] = $imagePath;
-
-        return AiImageFile::fromPath($imagePath, $mimeType);
+        return $this->openRouterImageReference('data:'.$mimeType.';base64,'.base64_encode($diskInstance->get($path)));
     }
 
-    private function deleteTemporaryReferenceImages(): void
+    /**
+     * @return array{type: string, image_url: array{url: string}}
+     */
+    private function openRouterImageReference(string $dataUri): array
     {
-        foreach ($this->temporaryReferenceImagePaths as $path) {
-            if (is_file($path)) {
-                @unlink($path);
-            }
-        }
-
-        $this->temporaryReferenceImagePaths = [];
+        return [
+            'type' => 'image_url',
+            'image_url' => [
+                'url' => $dataUri,
+            ],
+        ];
     }
 }
