@@ -21,6 +21,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Laravel\Ai\Files\Base64Image;
 use Laravel\Ai\Files\Image as AiImageFile;
 use Laravel\Ai\Files\LocalImage;
 use Laravel\Ai\Files\StoredImage;
@@ -293,11 +294,15 @@ class GeneratePosterBatchItem implements ShouldQueue
 
             if (count($referenceImages) > 0) {
                 $attachments = array_filter(array_map(
-                    fn (string $dataUri) => $this->parseReferenceImage($dataUri),
+                    fn (mixed $referenceImage) => $this->parseReferenceImage($referenceImage),
                     $referenceImages,
                 ));
 
                 if (count($attachments) > 0) {
+                    Log::info('GeneratePosterBatchItem: attaching reference images', [
+                        'attachment_classes' => array_map(fn (object $attachment) => $attachment::class, array_values($attachments)),
+                    ]);
+
                     $imageBuilder->attachments(array_values($attachments));
                 }
             }
@@ -344,9 +349,21 @@ class GeneratePosterBatchItem implements ShouldQueue
      * Parse a reference image that may be a file path (medias/xxx.jpg), Media UUID,
      * browser-produced data URI (data:image/png;base64,...), or raw base64 string.
      */
-    private function parseReferenceImage(string $input): StoredImage|LocalImage|null
+    private function parseReferenceImage(mixed $input): StoredImage|LocalImage|null
     {
-        if (trim($input) === '') {
+        if ($input instanceof StoredImage || $input instanceof LocalImage) {
+            return $input;
+        }
+
+        if ($input instanceof Base64Image) {
+            return $this->temporaryReferenceImage($input->base64, $input->mimeType() ?? 'image/jpeg');
+        }
+
+        if (is_array($input)) {
+            $input = data_get($input, 'image_url.url', data_get($input, 'url'));
+        }
+
+        if (! is_string($input) || trim($input) === '') {
             return null;
         }
 
