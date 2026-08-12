@@ -9,8 +9,6 @@ use App\Enums\Media\Source;
 use App\Enums\Post\CreatedVia;
 use App\Enums\Post\Status as PostStatus;
 use App\Events\Ai\PosterBatchProgress;
-use App\Models\Media;
-use App\Models\Post;
 use App\Models\PosterBatchItem;
 use App\Services\Ai\UserAiCreditService;
 use Carbon\Carbon;
@@ -21,7 +19,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Laravel\Ai\Image;
 use Throwable;
 
@@ -142,10 +139,12 @@ class GeneratePosterBatchItem implements ShouldQueue
         $mediaItem = null;
         if ($imagePath && Storage::disk('public')->exists($imagePath)) {
             try {
+                $mimeType = Storage::disk('public')->mimeType($imagePath) ?: 'image/png';
+
                 $mediaRecord = $workspace->addMediaFromStoredPath(
                     storagePath: $imagePath,
                     originalFilename: basename($imagePath),
-                    mimeType: 'image/png',
+                    mimeType: $mimeType,
                     size: Storage::disk('public')->size($imagePath),
                     collection: 'ai-generated',
                     meta: ['source' => Source::Ai->value],
@@ -155,6 +154,7 @@ class GeneratePosterBatchItem implements ShouldQueue
                     'media_id' => $mediaRecord->id,
                     'media_path' => $mediaRecord->path,
                     'image_path' => $imagePath,
+                    'mime_type' => $mimeType,
                 ]);
             } catch (Throwable $e) {
                 Log::error('GeneratePosterBatchItem: Media creation failed', [
@@ -169,7 +169,7 @@ class GeneratePosterBatchItem implements ShouldQueue
                 'path' => $mediaRecord->path,
                 'url' => Storage::disk('public')->url($mediaRecord->path),
                 'type' => 'image',
-                'mime_type' => 'image/png',
+                'mime_type' => $mimeType,
                 'source' => Source::Ai->value,
             ];
 
@@ -266,39 +266,47 @@ class GeneratePosterBatchItem implements ShouldQueue
         }
 
         try {
-            $enhancedPrompt = $visualPrompt;
-
-            // Enhance prompt with reference image instructions if provided
-            if (count($referenceImages) > 0) {
-                $enhancedPrompt .= '. Reference the provided images for visual style, color palette, composition, and mood. Maintain consistency with the visual direction shown in the reference images.';
-            }
-
             Log::info('GeneratePosterBatchItem: generating image', [
-                'prompt_length' => strlen($enhancedPrompt),
+                'prompt_length' => strlen($visualPrompt),
                 'has_references' => count($referenceImages) > 0,
                 'model' => config('ai.default_image_model'),
             ]);
 
-            $response = Image::of($enhancedPrompt)
+            $imageBuilder = Image::of($visualPrompt)
                 ->square()
                 ->quality('low')
-                ->timeout(120)
-                ->generate(model: config('ai.default_image_model'));
+                ->timeout(120);
 
-            $bytes = (string) $response;
+            if (count($referenceImages) > 0) {
+                $attachments = array_map(
+                    fn (string $base64) => \Laravel\Ai\Files\Image::fromBase64($base64),
+                    $referenceImages,
+                );
+                $imageBuilder->attachments($attachments);
+            }
 
-            if ($bytes === '') {
+            $response = $imageBuilder->generate(model: config('ai.default_image_model'));
+
+            $image = $response->firstImage();
+
+            if ($image->content() === '') {
                 Log::warning('GeneratePosterBatchItem: empty response from image generation');
 
                 return null;
             }
 
-            $filename = 'posters/'.Str::uuid().'.png';
-            Storage::disk('public')->put($filename, $bytes);
+            $filename = $response->store('posters', 'public');
+
+            if ($filename === false) {
+                Log::warning('GeneratePosterBatchItem: failed to store image');
+
+                return null;
+            }
 
             Log::info('GeneratePosterBatchItem: image saved', [
                 'filename' => $filename,
-                'size' => strlen($bytes),
+                'mime' => $image->mime,
+                'size' => strlen($image->content()),
             ]);
 
             return $filename;
