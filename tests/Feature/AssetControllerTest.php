@@ -106,6 +106,30 @@ test('can upload an image asset', function () {
     expect($media->collection)->toBe('assets');
 });
 
+test('reference image uploads are available in the assets view collection', function () {
+    $file = UploadedFile::fake()->image('brand-reference.jpg', 800, 600);
+
+    $uploadResponse = $this->actingAs($this->user)
+        ->postJson(route('app.assets.store'), [
+            'media' => $file,
+            'collection' => 'assets',
+        ]);
+
+    $uploadResponse->assertCreated();
+
+    $media = $this->workspace->getMedia('assets')->first();
+
+    expect($media)->not->toBeNull()
+        ->and($media->original_filename)->toBe('brand-reference.jpg')
+        ->and($media->collection)->toBe('assets');
+
+    $this->actingAs($this->user)
+        ->getJson(route('app.assets.search', ['search' => 'brand-reference']))
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $media->id)
+        ->assertJsonPath('data.0.path', $media->path);
+});
 test('can delete an asset', function () {
     $file = UploadedFile::fake()->image('photo.jpg');
     $media = $this->workspace->addMedia($file, 'assets');

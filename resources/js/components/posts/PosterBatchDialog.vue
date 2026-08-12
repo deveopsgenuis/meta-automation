@@ -13,12 +13,23 @@ import {
 import { computed, onUnmounted, reactive, ref, watch } from 'vue';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { generate, execute, batch as batchRoute } from '@/routes/app/posts/ai/plan';
+import {
+    batch as batchRoute,
+    execute,
+    generate,
+} from '@/routes/app/posts/ai/plan';
 import { retry } from '@/routes/app/posts/ai/plan/batch';
 
 interface SocialAccount {
@@ -84,7 +95,9 @@ const open = computed({
 });
 
 // State
-const selectedSocialAccountId = ref<string | null>(props.socialAccounts[0]?.id ?? null);
+const selectedSocialAccountId = ref<string | null>(
+    props.socialAccounts[0]?.id ?? null,
+);
 const instruction = ref('');
 const showInstructionModal = ref(false);
 const isGeneratingPlan = ref(false);
@@ -206,7 +219,7 @@ const handleReferenceImageUpload = async (event: Event) => {
         try {
             const formData = new FormData();
             formData.append('media', file);
-            formData.append('collection', 'other');
+            formData.append('collection', 'assets');
 
             const response = await fetch('/assets', {
                 method: 'POST',
@@ -272,7 +285,10 @@ const generatePlan = async () => {
         plan.value = data.posts || [];
         isDirty.value = true;
     } catch (err: unknown) {
-        errorMessage.value = err instanceof Error ? err.message : 'An error occurred while generating content plan.';
+        errorMessage.value =
+            err instanceof Error
+                ? err.message
+                : 'An error occurred while generating content plan.';
     } finally {
         isGeneratingPlan.value = false;
     }
@@ -299,7 +315,8 @@ const executePlan = async () => {
             body: JSON.stringify({
                 plan: plan.value,
                 social_account_id: selectedSocialAccountId.value,
-                reference_images: validPaths.length > 0 ? validPaths : undefined,
+                reference_images:
+                    validPaths.length > 0 ? validPaths : undefined,
             }),
         });
 
@@ -315,7 +332,10 @@ const executePlan = async () => {
 
         startPolling(data.batch.id);
     } catch (err: unknown) {
-        errorMessage.value = err instanceof Error ? err.message : 'An error occurred while queuing poster generation.';
+        errorMessage.value =
+            err instanceof Error
+                ? err.message
+                : 'An error occurred while queuing poster generation.';
     } finally {
         isExecutingPlan.value = false;
     }
@@ -345,15 +365,15 @@ const fetchBatchStatus = async (batchId: string) => {
 const startPolling = (batchId: string) => {
     stopPolling();
     fetchBatchStatus(batchId);
-    pollTimer = window.setInterval(() => {
+    pollInterval = window.setInterval(() => {
         fetchBatchStatus(batchId);
     }, 3000);
 };
 
 const stopPolling = () => {
-    if (pollTimer !== null) {
-        clearInterval(pollTimer);
-        pollTimer = null;
+    if (pollInterval !== null) {
+        clearInterval(pollInterval);
+        pollInterval = null;
     }
 };
 
@@ -383,16 +403,18 @@ const retryItem = async (itemId: string) => {
 <template>
     <div
         v-if="open"
-        class="fixed inset-0 z-50 flex flex-col bg-background text-foreground animate-in fade-in-0 duration-200"
+        class="fixed inset-0 z-50 flex animate-in flex-col bg-background text-foreground duration-200 fade-in-0"
     >
         <!-- Header -->
-        <header class="flex h-16 shrink-0 items-center justify-between border-b-2 border-foreground/10 px-6 bg-card">
+        <header
+            class="flex h-16 shrink-0 items-center justify-between border-b-2 border-foreground/10 bg-card px-6"
+        >
             <!-- Left: Select Channel -->
             <div class="flex items-center gap-3">
                 <div class="relative">
                     <select
                         v-model="selectedSocialAccountId"
-                        class="h-10 appearance-none rounded-xl border-2 border-foreground bg-card py-1.5 pl-4 pr-10 text-sm font-bold shadow-2xs transition-all focus:outline-none focus:ring-2 focus:ring-foreground"
+                        class="h-10 appearance-none rounded-xl border-2 border-foreground bg-card py-1.5 pr-10 pl-4 text-sm font-bold shadow-2xs transition-all focus:ring-2 focus:ring-foreground focus:outline-none"
                     >
                         <option :value="null">Select channel</option>
                         <option
@@ -403,7 +425,9 @@ const retryItem = async (itemId: string) => {
                             {{ account.display_name }} ({{ account.platform }})
                         </option>
                     </select>
-                    <IconChevronDown class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-foreground/70" />
+                    <IconChevronDown
+                        class="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-foreground/70"
+                    />
                 </div>
             </div>
 
@@ -444,13 +468,21 @@ const retryItem = async (itemId: string) => {
                     <div
                         v-for="i in props.totalPosts"
                         :key="i"
-                        class="flex flex-col rounded-2xl border-2 border-foreground/10 bg-card p-4 shadow-2xs opacity-75"
+                        class="flex flex-col rounded-2xl border-2 border-foreground/10 bg-card p-4 opacity-75 shadow-2xs"
                     >
-                        <div class="mb-3 h-32 w-full rounded-xl bg-foreground/10 animate-pulse"></div>
+                        <div
+                            class="mb-3 h-32 w-full animate-pulse rounded-xl bg-foreground/10"
+                        ></div>
                         <div class="space-y-2">
-                            <div class="h-3.5 w-3/4 rounded bg-foreground/10 animate-pulse"></div>
-                            <div class="h-3 w-full rounded bg-foreground/10 animate-pulse"></div>
-                            <div class="h-3 w-1/2 rounded bg-foreground/10 animate-pulse"></div>
+                            <div
+                                class="h-3.5 w-3/4 animate-pulse rounded bg-foreground/10"
+                            ></div>
+                            <div
+                                class="h-3 w-full animate-pulse rounded bg-foreground/10"
+                            ></div>
+                            <div
+                                class="h-3 w-1/2 animate-pulse rounded bg-foreground/10"
+                            ></div>
                         </div>
                     </div>
                 </div>
@@ -482,35 +514,51 @@ const retryItem = async (itemId: string) => {
                     <div
                         v-for="(item, index) in plan"
                         :key="index"
-                        class="flex flex-col justify-between rounded-2xl border-2 border-foreground bg-card p-4 shadow-2xs hover:shadow-md transition-shadow"
+                        class="flex flex-col justify-between rounded-2xl border-2 border-foreground bg-card p-4 shadow-2xs transition-shadow hover:shadow-md"
                     >
                         <div>
                             <!-- Header / Date -->
-                            <div class="mb-3 flex items-center justify-between border-b-2 border-foreground/10 pb-2">
-                                <span class="text-xs font-bold uppercase tracking-wider text-foreground/70">
+                            <div
+                                class="mb-3 flex items-center justify-between border-b-2 border-foreground/10 pb-2"
+                            >
+                                <span
+                                    class="text-xs font-bold tracking-wider text-foreground/70 uppercase"
+                                >
                                     Day {{ index + 1 }}
                                 </span>
-                                <span class="text-xs font-semibold text-foreground/60">
+                                <span
+                                    class="text-xs font-semibold text-foreground/60"
+                                >
                                     {{ item.scheduled_date }}
                                 </span>
                             </div>
 
                             <!-- Image placeholder prompt area -->
-                            <div class="mb-3 flex h-32 flex-col justify-center items-center rounded-xl border-2 border-dashed border-foreground/20 bg-muted/40 p-3 text-center">
-                                <IconSparkles class="mb-1 size-5 text-foreground/40" />
-                                <p class="line-clamp-3 text-[11px] font-medium text-foreground/70 leading-tight">
+                            <div
+                                class="mb-3 flex h-32 flex-col items-center justify-center rounded-xl border-2 border-dashed border-foreground/20 bg-muted/40 p-3 text-center"
+                            >
+                                <IconSparkles
+                                    class="mb-1 size-5 text-foreground/40"
+                                />
+                                <p
+                                    class="line-clamp-3 text-[11px] leading-tight font-medium text-foreground/70"
+                                >
                                     "{{ item.post_visual_prompt }}"
                                 </p>
                             </div>
 
                             <!-- Description -->
-                            <p class="mb-2 line-clamp-3 text-xs font-medium text-foreground">
+                            <p
+                                class="mb-2 line-clamp-3 text-xs font-medium text-foreground"
+                            >
                                 {{ item.post_description }}
                             </p>
                         </div>
 
                         <!-- Hashtags -->
-                        <p class="mt-2 line-clamp-1 text-[11px] font-bold text-violet-600 dark:text-violet-400">
+                        <p
+                            class="mt-2 line-clamp-1 text-[11px] font-bold text-violet-600 dark:text-violet-400"
+                        >
                             {{ item.post_hashtags }}
                         </p>
                     </div>
@@ -526,34 +574,55 @@ const retryItem = async (itemId: string) => {
                         :key="item.id || index"
                         class="flex flex-col justify-between rounded-2xl border-2 border-foreground bg-card p-4 shadow-2xs transition-all"
                         :class="{
-                            'border-emerald-500 bg-emerald-500/5': item.status === 'completed',
-                            'border-rose-500 bg-rose-500/5': item.status === 'failed',
-                            'border-violet-500 bg-violet-500/5': item.status === 'processing',
+                            'border-emerald-500 bg-emerald-500/5':
+                                item.status === 'completed',
+                            'border-rose-500 bg-rose-500/5':
+                                item.status === 'failed',
+                            'border-violet-500 bg-violet-500/5':
+                                item.status === 'processing',
                         }"
                     >
                         <div>
                             <!-- Header / Status -->
-                            <div class="mb-3 flex items-center justify-between border-b-2 border-foreground/10 pb-2">
-                                <span class="text-xs font-bold uppercase tracking-wider text-foreground/70">
+                            <div
+                                class="mb-3 flex items-center justify-between border-b-2 border-foreground/10 pb-2"
+                            >
+                                <span
+                                    class="text-xs font-bold tracking-wider text-foreground/70 uppercase"
+                                >
                                     Day {{ index + 1 }}
                                 </span>
                                 <span
                                     class="inline-flex items-center gap-1 text-xs font-bold"
                                     :class="{
-                                        'text-emerald-600': item.status === 'completed',
-                                        'text-rose-600': item.status === 'failed',
-                                        'text-violet-600': item.status === 'processing',
-                                        'text-foreground/50': item.status === 'pending',
+                                        'text-emerald-600':
+                                            item.status === 'completed',
+                                        'text-rose-600':
+                                            item.status === 'failed',
+                                        'text-violet-600':
+                                            item.status === 'processing',
+                                        'text-foreground/50':
+                                            item.status === 'pending',
                                     }"
                                 >
-                                    <IconCheck v-if="item.status === 'completed'" class="size-3.5" />
-                                    <Spinner v-else-if="item.status === 'processing'" class="size-3.5" />
-                                    <span class="capitalize">{{ item.status }}</span>
+                                    <IconCheck
+                                        v-if="item.status === 'completed'"
+                                        class="size-3.5"
+                                    />
+                                    <Spinner
+                                        v-else-if="item.status === 'processing'"
+                                        class="size-3.5"
+                                    />
+                                    <span class="capitalize">{{
+                                        item.status
+                                    }}</span>
                                 </span>
                             </div>
 
                             <!-- Image Container -->
-                            <div class="relative mb-3 h-32 w-full overflow-hidden rounded-xl border-2 border-foreground/20 bg-muted">
+                            <div
+                                class="relative mb-3 h-32 w-full overflow-hidden rounded-xl border-2 border-foreground/20 bg-muted"
+                            >
                                 <img
                                     v-if="item.image_url"
                                     :src="item.image_url"
@@ -562,17 +631,24 @@ const retryItem = async (itemId: string) => {
                                 />
                                 <div
                                     v-else-if="item.status === 'processing'"
-                                    class="flex size-full flex-col items-center justify-center gap-2 p-2 bg-violet-500/10"
+                                    class="flex size-full flex-col items-center justify-center gap-2 bg-violet-500/10 p-2"
                                 >
                                     <Spinner class="size-6 text-violet-600" />
-                                    <span class="text-[10px] font-bold text-violet-600">Creating poster...</span>
+                                    <span
+                                        class="text-[10px] font-bold text-violet-600"
+                                        >Creating poster...</span
+                                    >
                                 </div>
                                 <div
                                     v-else-if="item.status === 'failed'"
-                                    class="flex size-full flex-col items-center justify-center gap-1.5 p-2 bg-rose-500/10 text-center"
+                                    class="flex size-full flex-col items-center justify-center gap-1.5 bg-rose-500/10 p-2 text-center"
                                 >
-                                    <IconAlertCircle class="size-6 text-rose-600" />
-                                    <span class="text-[10px] font-medium text-rose-600 line-clamp-2">
+                                    <IconAlertCircle
+                                        class="size-6 text-rose-600"
+                                    />
+                                    <span
+                                        class="line-clamp-2 text-[10px] font-medium text-rose-600"
+                                    >
                                         {{ item.error || 'Failed' }}
                                     </span>
                                 </div>
@@ -585,19 +661,25 @@ const retryItem = async (itemId: string) => {
                             </div>
 
                             <!-- Description -->
-                            <p class="mb-2 line-clamp-2 text-xs font-medium text-foreground">
+                            <p
+                                class="mb-2 line-clamp-2 text-xs font-medium text-foreground"
+                            >
                                 {{ item.plan_data?.post_description }}
                             </p>
                         </div>
 
                         <!-- Card Footer / Retry -->
-                        <div class="mt-2 flex items-center justify-between border-t border-foreground/10 pt-2">
-                            <span class="text-[11px] font-bold text-violet-600 dark:text-violet-400 truncate">
+                        <div
+                            class="mt-2 flex items-center justify-between border-t border-foreground/10 pt-2"
+                        >
+                            <span
+                                class="truncate text-[11px] font-bold text-violet-600 dark:text-violet-400"
+                            >
                                 {{ item.plan_data?.post_hashtags }}
                             </span>
                             <Button
                                 v-if="item.status === 'failed'"
-                                size="xs"
+                                size="sm"
                                 variant="outline"
                                 class="shrink-0 gap-1 rounded-lg border-2 border-rose-500 text-rose-600 hover:bg-rose-50"
                                 @click="retryItem(item.id)"
@@ -613,7 +695,9 @@ const retryItem = async (itemId: string) => {
 
         <!-- Floating Bottom Control Bar matching UI reference -->
         <footer class="fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-            <div class="flex items-center gap-3 rounded-2xl border-2 border-foreground bg-card p-2 shadow-xl">
+            <div
+                class="flex items-center gap-3 rounded-2xl border-2 border-foreground bg-card p-2 shadow-xl"
+            >
                 <!-- Instruction Button -->
                 <button
                     type="button"
@@ -622,7 +706,10 @@ const retryItem = async (itemId: string) => {
                 >
                     <IconSettings class="size-4" />
                     <span>Instruction</span>
-                    <span v-if="instruction.trim() || referenceImages.length > 0" class="size-2 rounded-full bg-violet-600"></span>
+                    <span
+                        v-if="instruction.trim() || referenceImages.length > 0"
+                        class="size-2 rounded-full bg-violet-600"
+                    ></span>
                 </button>
 
                 <!-- Action Button: Generate Plan OR Generate Posters -->
@@ -633,7 +720,10 @@ const retryItem = async (itemId: string) => {
                     class="flex items-center gap-2 rounded-xl border-2 border-foreground bg-foreground px-5 py-2 text-xs font-black text-background transition-all hover:opacity-90 disabled:opacity-50"
                     @click="generatePlan"
                 >
-                    <Spinner v-if="isGeneratingPlan" class="size-4 text-background" />
+                    <Spinner
+                        v-if="isGeneratingPlan"
+                        class="size-4 text-background"
+                    />
                     <IconSparkles v-else class="size-4" />
                     <span>Generate plan</span>
                 </button>
@@ -655,9 +745,20 @@ const retryItem = async (itemId: string) => {
                     class="flex items-center gap-3 px-4 py-1.5 text-xs font-bold"
                 >
                     <span class="flex items-center gap-1.5">
-                        <Spinner v-if="batch.status === 'generating'" class="size-4 text-violet-600" />
-                        <IconCheck v-else-if="batch.status === 'completed'" class="size-4 text-emerald-600" />
-                        <span>{{ batch.completed_items }}/{{ batch.total_items }} Completed</span>
+                        <Spinner
+                            v-if="batch.status === 'generating'"
+                            class="size-4 text-violet-600"
+                        />
+                        <IconCheck
+                            v-else-if="batch.status === 'completed'"
+                            class="size-4 text-emerald-600"
+                        />
+                        <span
+                            >{{ batch.completed_items }}/{{
+                                batch.total_items
+                            }}
+                            Completed</span
+                        >
                     </span>
                     <button
                         type="button"
@@ -676,7 +777,8 @@ const retryItem = async (itemId: string) => {
                 <DialogHeader>
                     <DialogTitle>Content Plan Instructions</DialogTitle>
                     <DialogDescription>
-                        Provide guidance or focus areas for the AI (e.g. "Focus on product launch", "Black Friday promo").
+                        Provide guidance or focus areas for the AI (e.g. "Focus
+                        on product launch", "Black Friday promo").
                     </DialogDescription>
                 </DialogHeader>
 
@@ -689,22 +791,35 @@ const retryItem = async (itemId: string) => {
 
                     <div class="space-y-2">
                         <Label>Reference images</Label>
-                        <p class="text-xs text-muted-foreground">Upload up to 6 images as visual reference for the poster generation.</p>
+                        <p class="text-xs text-muted-foreground">
+                            Upload up to 6 images as visual reference for the
+                            poster generation.
+                        </p>
 
-                        <div v-if="referenceImages.length > 0" class="flex flex-wrap gap-3">
+                        <div
+                            v-if="referenceImages.length > 0"
+                            class="flex flex-wrap gap-3"
+                        >
                             <div
                                 v-for="(image, index) in referenceImages"
                                 :key="index"
                                 class="group relative size-24 overflow-hidden rounded-lg border-2 border-foreground/10"
                             >
                                 <img
-                                    :src="image"
+                                    :src="image.url"
                                     :alt="`Reference ${index + 1}`"
                                     class="size-full object-cover"
+                                    :class="{ 'opacity-50': image.uploading }"
                                 />
+                                <div
+                                    v-if="image.uploading"
+                                    class="absolute inset-0 flex items-center justify-center bg-black/40"
+                                >
+                                    <Spinner class="size-5 text-white" />
+                                </div>
                                 <button
                                     type="button"
-                                    class="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                    class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
                                     @click="removeReferenceImage(index)"
                                 >
                                     <IconX class="size-3" />
@@ -717,8 +832,12 @@ const retryItem = async (itemId: string) => {
                             class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-foreground/20 bg-muted/30 p-4 transition-colors hover:bg-muted/50"
                         >
                             <IconPhoto class="size-8 text-foreground/40" />
-                            <span class="text-xs font-medium text-foreground/60">
-                                Add images ({{ referenceImages.length }}/{{ MAX_REFERENCE_IMAGES }})
+                            <span
+                                class="text-xs font-medium text-foreground/60"
+                            >
+                                Add images ({{ referenceImages.length }}/{{
+                                    MAX_REFERENCE_IMAGES
+                                }})
                             </span>
                             <input
                                 type="file"
@@ -743,13 +862,18 @@ const retryItem = async (itemId: string) => {
                 <DialogHeader>
                     <DialogTitle>Unsaved Content Plan</DialogTitle>
                     <DialogDescription>
-                        You have a generated post plan that hasn't been turned into posters yet. Closing will lose this plan.
+                        You have a generated post plan that hasn't been turned
+                        into posters yet. Closing will lose this plan.
                     </DialogDescription>
                 </DialogHeader>
 
                 <DialogFooter class="gap-2">
-                    <Button variant="outline" @click="showCloseConfirm = false">Cancel</Button>
-                    <Button variant="destructive" @click="confirmClose">Discard & Close</Button>
+                    <Button variant="outline" @click="showCloseConfirm = false"
+                        >Cancel</Button
+                    >
+                    <Button variant="destructive" @click="confirmClose"
+                        >Discard & Close</Button
+                    >
                 </DialogFooter>
             </DialogContent>
         </Dialog>

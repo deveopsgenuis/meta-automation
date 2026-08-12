@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { usePage } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { usePage } from '@inertiajs/vue3';
 import { IconPhoto, IconX } from '@tabler/icons-vue';
 import { computed, reactive, ref, watch } from 'vue';
 
@@ -34,7 +41,14 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
     'update:modelValue': [value: boolean];
-    submit: [payload: { prompt: string; systemPrompt: string; mode: 'single' | 'bulk'; referenceImages: string[] }];
+    submit: [
+        payload: {
+            prompt: string;
+            systemPrompt: string;
+            mode: 'single' | 'bulk';
+            referenceImages: string[];
+        },
+    ];
 }>();
 
 const page = usePage();
@@ -52,26 +66,38 @@ const promptValue = ref(props.prompt);
 const systemPromptValue = ref(props.systemPrompt);
 const modeValue = ref<'single' | 'bulk'>(props.mode);
 const referenceImages = ref<ReferenceImageItem[]>(
-    props.referenceImages.map((path) => ({ path, url: path }))
+    props.referenceImages.map((path) => ({ path, url: path })),
 );
 
 const MAX_IMAGES = 6;
 
-watch(() => props.prompt, (value) => {
-    promptValue.value = value;
-});
+watch(
+    () => props.prompt,
+    (value) => {
+        promptValue.value = value;
+    },
+);
 
-watch(() => props.systemPrompt, (value) => {
-    systemPromptValue.value = value;
-});
+watch(
+    () => props.systemPrompt,
+    (value) => {
+        systemPromptValue.value = value;
+    },
+);
 
-watch(() => props.mode, (value) => {
-    modeValue.value = value;
-});
+watch(
+    () => props.mode,
+    (value) => {
+        modeValue.value = value;
+    },
+);
 
-watch(() => props.referenceImages, (value) => {
-    referenceImages.value = value.map((path) => ({ path, url: path }));
-});
+watch(
+    () => props.referenceImages,
+    (value) => {
+        referenceImages.value = value.map((path) => ({ path, url: path }));
+    },
+);
 
 const handleImageUpload = async (event: Event) => {
     const input = event.target as HTMLInputElement;
@@ -96,7 +122,7 @@ const handleImageUpload = async (event: Event) => {
         try {
             const formData = new FormData();
             formData.append('media', file);
-            formData.append('collection', 'other');
+            formData.append('collection', 'assets');
 
             const response = await fetch('/assets', {
                 method: 'POST',
@@ -153,36 +179,57 @@ const submit = () => {
     <Dialog v-model:open="internalOpen">
         <DialogContent class="sm:max-w-2xl">
             <DialogHeader>
-                <DialogTitle>{{ $t('calendar.poster_dialog.title') }}</DialogTitle>
-                <DialogDescription>{{ $t('calendar.poster_dialog.description') }}</DialogDescription>
+                <DialogTitle>{{
+                    $t('calendar.poster_dialog.title')
+                }}</DialogTitle>
+                <DialogDescription>{{
+                    $t('calendar.poster_dialog.description')
+                }}</DialogDescription>
             </DialogHeader>
 
             <div class="space-y-4">
                 <div class="grid gap-2">
-                    <Label for="poster-design-prompt">{{ $t('calendar.poster_dialog.prompt_label') }}</Label>
+                    <Label for="poster-design-prompt">{{
+                        $t('calendar.poster_dialog.prompt_label')
+                    }}</Label>
                     <Textarea
                         id="poster-design-prompt"
                         v-model="promptValue"
-                        :placeholder="$t('calendar.poster_dialog.prompt_placeholder')"
+                        :placeholder="
+                            $t('calendar.poster_dialog.prompt_placeholder')
+                        "
                         rows="4"
                     />
                 </div>
 
                 <div class="grid gap-2">
-                    <Label for="poster-design-system-prompt">{{ $t('calendar.poster_dialog.system_prompt_label') }}</Label>
+                    <Label for="poster-design-system-prompt">{{
+                        $t('calendar.poster_dialog.system_prompt_label')
+                    }}</Label>
                     <Textarea
                         id="poster-design-system-prompt"
                         v-model="systemPromptValue"
-                        :placeholder="$t('calendar.poster_dialog.system_prompt_placeholder')"
+                        :placeholder="
+                            $t(
+                                'calendar.poster_dialog.system_prompt_placeholder',
+                            )
+                        "
                         rows="4"
                     />
                 </div>
 
                 <div class="grid gap-2">
-                    <Label>{{ $t('calendar.poster_dialog.reference_images') }}</Label>
-                    <p class="text-xs text-muted-foreground">{{ $t('calendar.poster_dialog.reference_images_hint') }}</p>
+                    <Label>{{
+                        $t('calendar.poster_dialog.reference_images')
+                    }}</Label>
+                    <p class="text-xs text-muted-foreground">
+                        {{ $t('calendar.poster_dialog.reference_images_hint') }}
+                    </p>
 
-                    <div v-if="referenceImages.length > 0" class="flex flex-wrap gap-3">
+                    <div
+                        v-if="referenceImages.length > 0"
+                        class="flex flex-wrap gap-3"
+                    >
                         <div
                             v-for="(image, index) in referenceImages"
                             :key="index"
@@ -202,7 +249,7 @@ const submit = () => {
                             </div>
                             <button
                                 type="button"
-                                class="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
                                 @click="removeImage(index)"
                             >
                                 <IconX class="size-3" />
@@ -216,7 +263,9 @@ const submit = () => {
                     >
                         <IconPhoto class="size-8 text-foreground/40" />
                         <span class="text-xs font-medium text-foreground/60">
-                            {{ $t('calendar.poster_dialog.add_images') }} ({{ referenceImages.length }}/{{ MAX_IMAGES }})
+                            {{ $t('calendar.poster_dialog.add_images') }} ({{
+                                referenceImages.length
+                            }}/{{ MAX_IMAGES }})
                         </span>
                         <input
                             type="file"
@@ -234,7 +283,11 @@ const submit = () => {
                         <Button
                             type="button"
                             variant="outline"
-                            :class="modeValue === 'single' ? 'bg-foreground text-background' : ''"
+                            :class="
+                                modeValue === 'single'
+                                    ? 'bg-foreground text-background'
+                                    : ''
+                            "
                             @click="modeValue = 'single'"
                         >
                             {{ $t('calendar.poster_dialog.single') }}
@@ -242,7 +295,11 @@ const submit = () => {
                         <Button
                             type="button"
                             variant="outline"
-                            :class="modeValue === 'bulk' ? 'bg-foreground text-background' : ''"
+                            :class="
+                                modeValue === 'bulk'
+                                    ? 'bg-foreground text-background'
+                                    : ''
+                            "
                             @click="modeValue = 'bulk'"
                         >
                             {{ $t('calendar.poster_dialog.bulk') }}
@@ -252,10 +309,17 @@ const submit = () => {
             </div>
 
             <DialogFooter>
-                <Button :loading="submitting" :disabled="!promptValue.trim()" @click="submit">
+                <Button
+                    :loading="submitting"
+                    :disabled="!promptValue.trim()"
+                    @click="submit"
+                >
                     {{ $t('calendar.poster_dialog.submit') }}
                 </Button>
-                <Button variant="outline" @click="emit('update:modelValue', false)">
+                <Button
+                    variant="outline"
+                    @click="emit('update:modelValue', false)"
+                >
                     {{ $t('calendar.poster_dialog.cancel') }}
                 </Button>
             </DialogFooter>
