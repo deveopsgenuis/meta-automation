@@ -10,7 +10,7 @@ import {
     IconSparkles,
     IconX,
 } from '@tabler/icons-vue';
-import { computed, onUnmounted, ref, watch } from 'vue';
+import { computed, onUnmounted, reactive, ref, watch } from 'vue';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -44,7 +44,7 @@ interface BatchItemData {
     post_id?: string | null;
     image_url?: string | null;
     error?: string | null;
-    plan_data: PlanItem;
+    plan_data?: PlanItem;
 }
 
 interface ActiveBatch {
@@ -86,7 +86,6 @@ const open = computed({
 // State
 const selectedSocialAccountId = ref<string | null>(props.socialAccounts[0]?.id ?? null);
 const instruction = ref('');
-const referenceImages = ref<string[]>([]);
 const showInstructionModal = ref(false);
 const isGeneratingPlan = ref(false);
 const isExecutingPlan = ref(false);
@@ -175,7 +174,16 @@ const resetState = () => {
     stopPolling();
 };
 
-const handleReferenceImageUpload = (event: Event) => {
+interface ReferenceImageItem {
+    id?: string;
+    path: string;
+    url: string;
+    uploading?: boolean;
+}
+
+const referenceImages = ref<ReferenceImageItem[]>([]);
+
+const handleReferenceImageUpload = async (event: Event) => {
     const input = event.target as HTMLInputElement;
     const files = input.files;
     if (!files) return;
@@ -187,12 +195,45 @@ const handleReferenceImageUpload = (event: Event) => {
         if (!file.type.startsWith('image/')) continue;
         if (file.size > 10 * 1024 * 1024) continue;
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const base64 = e.target?.result as string;
-            referenceImages.value.push(base64);
-        };
-        reader.readAsDataURL(file);
+        const tempUrl = URL.createObjectURL(file);
+        const item = reactive<ReferenceImageItem>({
+            path: '',
+            url: tempUrl,
+            uploading: true,
+        });
+        referenceImages.value.push(item);
+
+        try {
+            const formData = new FormData();
+            formData.append('media', file);
+            formData.append('collection', 'other');
+
+            const response = await fetch('/assets', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+
+            const result = await response.json();
+            const media = result.data || result;
+            item.id = media.id;
+            item.path = media.path;
+            item.url = media.url || tempUrl;
+            item.uploading = false;
+        } catch (err) {
+            console.error('Failed to upload reference image:', err);
+            const idx = referenceImages.value.indexOf(item);
+            if (idx !== -1) {
+                referenceImages.value.splice(idx, 1);
+            }
+        }
     }
 
     input.value = '';
@@ -244,6 +285,10 @@ const executePlan = async () => {
     errorMessage.value = null;
 
     try {
+        const validPaths = referenceImages.value
+            .filter((img) => !img.uploading && img.path)
+            .map((img) => img.path);
+
         const response = await fetch(execute.url(), {
             method: 'POST',
             headers: {
@@ -254,7 +299,7 @@ const executePlan = async () => {
             body: JSON.stringify({
                 plan: plan.value,
                 social_account_id: selectedSocialAccountId.value,
-                reference_images: referenceImages.value.length > 0 ? referenceImages.value : undefined,
+                reference_images: validPaths.length > 0 ? validPaths : undefined,
             }),
         });
 
@@ -300,15 +345,15 @@ const fetchBatchStatus = async (batchId: string) => {
 const startPolling = (batchId: string) => {
     stopPolling();
     fetchBatchStatus(batchId);
-    pollInterval = setInterval(() => {
+    pollTimer = window.setInterval(() => {
         fetchBatchStatus(batchId);
     }, 3000);
 };
 
 const stopPolling = () => {
-    if (pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
+    if (pollTimer !== null) {
+        clearInterval(pollTimer);
+        pollTimer = null;
     }
 };
 

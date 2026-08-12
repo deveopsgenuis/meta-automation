@@ -155,12 +155,19 @@ const canDelete = (post: Post): boolean => DELETABLE_STATUSES.includes(post.stat
 
 const { canCreatePost } = useWorkspaceRole();
 
+interface ReferenceImageItem {
+    id?: string;
+    path: string;
+    url: string;
+    uploading?: boolean;
+}
+
 const posterDialogOpen = ref(false);
 const posterPrompt = ref('');
 const posterSystemPrompt = ref('');
 const posterMode = ref<'single' | 'bulk'>('single');
 const posterSubmitting = ref(false);
-const posterReferenceImages = ref<string[]>([]);
+const posterReferenceImages = ref<ReferenceImageItem[]>([]);
 
 const MAX_POSTER_IMAGES = 6;
 
@@ -182,6 +189,10 @@ const submitPosterRequest = async () => {
     posterSubmitting.value = true;
 
     try {
+        const validPaths = posterReferenceImages.value
+            .filter((img) => !img.uploading && img.path)
+            .map((img) => img.path);
+
         const response = await fetch('/posts/ai/poster-design', {
             method: 'POST',
             headers: {
@@ -193,7 +204,7 @@ const submitPosterRequest = async () => {
                 prompt: posterPrompt.value.trim(),
                 system_prompt: posterSystemPrompt.value.trim(),
                 bulk: posterMode.value === 'bulk',
-                reference_images: posterReferenceImages.value.length > 0 ? posterReferenceImages.value : undefined,
+                reference_images: validPaths.length > 0 ? validPaths : undefined,
             }),
         });
 
@@ -207,7 +218,7 @@ const submitPosterRequest = async () => {
     }
 };
 
-const handlePosterImageUpload = (event: Event) => {
+const handlePosterImageUpload = async (event: Event) => {
     const input = event.target as HTMLInputElement;
     const files = input.files;
     if (!files) return;
@@ -219,12 +230,45 @@ const handlePosterImageUpload = (event: Event) => {
         if (!file.type.startsWith('image/')) continue;
         if (file.size > 10 * 1024 * 1024) continue;
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const base64 = e.target?.result as string;
-            posterReferenceImages.value.push(base64);
-        };
-        reader.readAsDataURL(file);
+        const tempUrl = URL.createObjectURL(file);
+        const item = reactive<ReferenceImageItem>({
+            path: '',
+            url: tempUrl,
+            uploading: true,
+        });
+        posterReferenceImages.value.push(item);
+
+        try {
+            const formData = new FormData();
+            formData.append('media', file);
+            formData.append('collection', 'other');
+
+            const response = await fetch('/assets', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': ((page.props as Record<string, unknown>).csrf_token as string) || '',
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+
+            const result = await response.json();
+            const media = result.data || result;
+            item.id = media.id;
+            item.path = media.path;
+            item.url = media.url || tempUrl;
+            item.uploading = false;
+        } catch (err) {
+            console.error('Failed to upload reference image:', err);
+            const idx = posterReferenceImages.value.indexOf(item);
+            if (idx !== -1) {
+                posterReferenceImages.value.splice(idx, 1);
+            }
+        }
     }
 
     input.value = '';
@@ -474,10 +518,17 @@ useWorkspaceEcho(
                             class="group relative size-24 overflow-hidden rounded-lg border-2 border-foreground/10"
                         >
                             <img
-                                :src="image"
+                                :src="image.url"
                                 :alt="`Reference ${index + 1}`"
                                 class="size-full object-cover"
+                                :class="{ 'opacity-50': image.uploading }"
                             />
+                            <div
+                                v-if="image.uploading"
+                                class="absolute inset-0 flex items-center justify-center bg-black/40"
+                            >
+                                <Spinner class="size-5 text-white" />
+                            </div>
                             <button
                                 type="button"
                                 class="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"

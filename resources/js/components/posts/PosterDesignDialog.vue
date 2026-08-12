@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { usePage } from '@inertiajs/vue3';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { IconPhoto, IconX } from '@tabler/icons-vue';
-import { computed, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 interface Props {
     modelValue: boolean;
@@ -13,6 +15,13 @@ interface Props {
     systemPrompt?: string;
     mode?: 'single' | 'bulk';
     referenceImages?: string[];
+}
+
+interface ReferenceImageItem {
+    id?: string;
+    path: string;
+    url: string;
+    uploading?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -28,6 +37,12 @@ const emit = defineEmits<{
     submit: [payload: { prompt: string; systemPrompt: string; mode: 'single' | 'bulk'; referenceImages: string[] }];
 }>();
 
+const page = usePage();
+
+const getCsrfToken = (): string => {
+    return ((page.props as Record<string, unknown>).csrf_token as string) || '';
+};
+
 const internalOpen = computed({
     get: () => props.modelValue,
     set: (value: boolean) => emit('update:modelValue', value),
@@ -36,7 +51,9 @@ const internalOpen = computed({
 const promptValue = ref(props.prompt);
 const systemPromptValue = ref(props.systemPrompt);
 const modeValue = ref<'single' | 'bulk'>(props.mode);
-const referenceImages = ref<string[]>([...props.referenceImages]);
+const referenceImages = ref<ReferenceImageItem[]>(
+    props.referenceImages.map((path) => ({ path, url: path }))
+);
 
 const MAX_IMAGES = 6;
 
@@ -53,10 +70,10 @@ watch(() => props.mode, (value) => {
 });
 
 watch(() => props.referenceImages, (value) => {
-    referenceImages.value = [...value];
+    referenceImages.value = value.map((path) => ({ path, url: path }));
 });
 
-const handleImageUpload = (event: Event) => {
+const handleImageUpload = async (event: Event) => {
     const input = event.target as HTMLInputElement;
     const files = input.files;
     if (!files) return;
@@ -68,12 +85,45 @@ const handleImageUpload = (event: Event) => {
         if (!file.type.startsWith('image/')) continue;
         if (file.size > 10 * 1024 * 1024) continue;
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const base64 = e.target?.result as string;
-            referenceImages.value.push(base64);
-        };
-        reader.readAsDataURL(file);
+        const tempUrl = URL.createObjectURL(file);
+        const item = reactive<ReferenceImageItem>({
+            path: '',
+            url: tempUrl,
+            uploading: true,
+        });
+        referenceImages.value.push(item);
+
+        try {
+            const formData = new FormData();
+            formData.append('media', file);
+            formData.append('collection', 'other');
+
+            const response = await fetch('/assets', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+
+            const result = await response.json();
+            const media = result.data || result;
+            item.id = media.id;
+            item.path = media.path;
+            item.url = media.url || tempUrl;
+            item.uploading = false;
+        } catch (err) {
+            console.error('Failed to upload reference image:', err);
+            const idx = referenceImages.value.indexOf(item);
+            if (idx !== -1) {
+                referenceImages.value.splice(idx, 1);
+            }
+        }
     }
 
     input.value = '';
@@ -86,11 +136,15 @@ const removeImage = (index: number) => {
 const canAddMore = computed(() => referenceImages.value.length < MAX_IMAGES);
 
 const submit = () => {
+    const validPaths = referenceImages.value
+        .filter((img) => !img.uploading && img.path)
+        .map((img) => img.path);
+
     emit('submit', {
         prompt: promptValue.value.trim(),
         systemPrompt: systemPromptValue.value.trim(),
         mode: modeValue.value,
-        referenceImages: referenceImages.value,
+        referenceImages: validPaths,
     });
 };
 </script>
@@ -135,10 +189,17 @@ const submit = () => {
                             class="group relative size-24 overflow-hidden rounded-lg border-2 border-foreground/10"
                         >
                             <img
-                                :src="image"
+                                :src="image.url"
                                 :alt="`Reference ${index + 1}`"
                                 class="size-full object-cover"
+                                :class="{ 'opacity-50': image.uploading }"
                             />
+                            <div
+                                v-if="image.uploading"
+                                class="absolute inset-0 flex items-center justify-center bg-black/40"
+                            >
+                                <Spinner class="size-5 text-white" />
+                            </div>
                             <button
                                 type="button"
                                 class="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"

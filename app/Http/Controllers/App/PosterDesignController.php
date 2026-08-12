@@ -6,9 +6,14 @@ namespace App\Http\Controllers\App;
 
 use App\Ai\Agents\PosterDesignGenerator;
 use App\Http\Requests\App\Ai\GeneratePosterDesignRequest;
+use App\Models\Media;
 use App\Services\Ai\UserAiCreditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Laravel\Ai\Files\Base64Image;
+use Laravel\Ai\Files\Image as AiImage;
 use Symfony\Component\HttpFoundation\Response;
 
 class PosterDesignController extends Controller
@@ -59,7 +64,7 @@ class PosterDesignController extends Controller
 
                 $items[] = [
                     'id' => $id,
-                    'result' => $this->normalizeResponse($this->runAgent($agent, $prompt)),
+                    'result' => $this->normalizeResponse($this->runAgent($agent, $prompt, $referenceImages)),
                 ];
 
                 UserAiCreditService::consumeImage($user);
@@ -86,17 +91,83 @@ class PosterDesignController extends Controller
             referenceImages: $referenceImages,
         );
 
-        $response = $this->runAgent($agent, $prompt);
+        $response = $this->runAgent($agent, $prompt, $referenceImages);
 
         UserAiCreditService::consumeImage($user);
 
         return response()->json($this->normalizeResponse($response), Response::HTTP_OK);
     }
 
-    private function runAgent(PosterDesignGenerator $agent, string $prompt): mixed
+    private function runAgent(PosterDesignGenerator $agent, string $prompt, array $referenceImages = []): mixed
     {
+        $attachments = $this->parseReferenceImages($referenceImages);
+
         // Promptable trait provides the `prompt()` method
-        return $agent->prompt($prompt);
+        return $agent->prompt($prompt, $attachments);
+    }
+
+    /**
+     * Parse an array of reference image strings (which may be file paths like `medias/xxx.jpg`,
+     * Media UUIDs, browser-produced data URIs like `data:image/png;base64,...`, or raw base64)
+     * into Base64Image attachments.
+     *
+     * @param  array<int, string>  $referenceImages
+     * @return array<int, Base64Image>
+     */
+    private function parseReferenceImages(array $referenceImages): array
+    {
+        $attachments = [];
+
+        foreach ($referenceImages as $input) {
+            if (! is_string($input) || trim($input) === '') {
+                continue;
+            }
+
+            $input = trim($input);
+
+            // 1. Check if $input is a stored file path (e.g. "medias/xxxx.jpg")
+            if (Storage::exists($input) || Storage::disk('public')->exists($input)) {
+                $disk = Storage::exists($input) ? Storage::disk() : Storage::disk('public');
+                $bytes = $disk->get($input);
+                $mimeType = $disk->mimeType($input) ?: 'image/jpeg';
+                $base64 = base64_encode($bytes);
+
+                $attachments[] = AiImage::fromBase64($base64, $mimeType);
+
+                continue;
+            }
+
+            // 2. Check if $input is a Media record ID
+            if (Str::isUuid($input)) {
+                $media = Media::query()->find($input);
+                if ($media) {
+                    $disk = Storage::exists($media->path) ? Storage::disk() : (Storage::disk('public')->exists($media->path) ? Storage::disk('public') : null);
+                    if ($disk) {
+                        $bytes = $disk->get($media->path);
+                        $mimeType = $media->mime_type ?: ($disk->mimeType($media->path) ?: 'image/jpeg');
+                        $base64 = base64_encode($bytes);
+
+                        $attachments[] = AiImage::fromBase64($base64, $mimeType);
+
+                        continue;
+                    }
+                }
+            }
+
+            // 3. Fallback: Data URI (data:image/png;base64,...)
+            if (str_starts_with($input, 'data:')) {
+                if (preg_match('/^data:([a-zA-Z0-9\/+\-]+);base64,(.+)$/s', $input, $matches)) {
+                    $attachments[] = AiImage::fromBase64($matches[2], $matches[1]);
+                }
+
+                continue;
+            }
+
+            // 4. Fallback: Raw base64 string
+            $attachments[] = AiImage::fromBase64($input);
+        }
+
+        return $attachments;
     }
 
     private function normalizeResponse(mixed $response): array

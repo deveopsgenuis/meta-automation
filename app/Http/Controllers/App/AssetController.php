@@ -63,8 +63,9 @@ class AssetController extends Controller
         $this->authorize('createPost', $workspace);
 
         $clientMeta = (array) $request->input('meta', []);
+        $collection = (string) $request->input('collection', 'assets');
 
-        $media = $workspace->addMedia($request->file('media'), 'assets', $clientMeta);
+        $media = $workspace->addMedia($request->file('media'), $collection, $clientMeta);
 
         return new MediaResource($media);
     }

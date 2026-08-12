@@ -9,6 +9,7 @@ use App\Enums\Media\Source;
 use App\Enums\Post\CreatedVia;
 use App\Enums\Post\Status as PostStatus;
 use App\Events\Ai\PosterBatchProgress;
+use App\Models\Media;
 use App\Models\PosterBatchItem;
 use App\Services\Ai\UserAiCreditService;
 use Carbon\Carbon;
@@ -19,6 +20,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Laravel\Ai\Files\Base64Image;
 use Laravel\Ai\Image;
 use Throwable;
 
@@ -284,11 +287,14 @@ class GeneratePosterBatchItem implements ShouldQueue
                 ->timeout(120);
 
             if (count($referenceImages) > 0) {
-                $attachments = array_map(
-                    fn (string $base64) => \Laravel\Ai\Files\Image::fromBase64($base64),
+                $attachments = array_filter(array_map(
+                    fn (string $dataUri) => $this->parseReferenceImage($dataUri),
                     $referenceImages,
-                );
-                $imageBuilder->attachments($attachments);
+                ));
+
+                if (count($attachments) > 0) {
+                    $imageBuilder->attachments(array_values($attachments));
+                }
             }
 
             $response = $imageBuilder->generate(model: config('ai.default_image_model'));
@@ -325,5 +331,57 @@ class GeneratePosterBatchItem implements ShouldQueue
 
             return null;
         }
+    }
+
+    /**
+     * Parse a reference image that may be a file path (medias/xxx.jpg), Media UUID,
+     * browser-produced data URI (data:image/png;base64,...), or raw base64 string.
+     */
+    private function parseReferenceImage(string $input): ?Base64Image
+    {
+        if (trim($input) === '') {
+            return null;
+        }
+
+        $input = trim($input);
+
+        // 1. Check if $input is a stored file path (e.g. "medias/xxxx.jpg")
+        if (Storage::exists($input) || Storage::disk('public')->exists($input)) {
+            $disk = Storage::exists($input) ? Storage::disk() : Storage::disk('public');
+            $bytes = $disk->get($input);
+            $mimeType = $disk->mimeType($input) ?: 'image/jpeg';
+            $base64 = base64_encode($bytes);
+
+            return \Laravel\Ai\Files\Image::fromBase64($base64, $mimeType);
+        }
+
+        // 2. Check if $input is a Media record ID
+        if (Str::isUuid($input)) {
+            $media = Media::query()->find($input);
+            if ($media) {
+                $disk = Storage::exists($media->path) ? Storage::disk() : (Storage::disk('public')->exists($media->path) ? Storage::disk('public') : null);
+                if ($disk) {
+                    $bytes = $disk->get($media->path);
+                    $mimeType = $media->mime_type ?: ($disk->mimeType($media->path) ?: 'image/jpeg');
+                    $base64 = base64_encode($bytes);
+
+                    return \Laravel\Ai\Files\Image::fromBase64($base64, $mimeType);
+                }
+            }
+        }
+
+        // 3. Fallback: Handle browser data URIs: data:<mime>;base64,<data>
+        if (str_starts_with($input, 'data:')) {
+            if (! preg_match('/^data:([a-zA-Z0-9\/+\-]+);base64,(.+)$/s', $input, $matches)) {
+                Log::warning('GeneratePosterBatchItem: unparseable data URI, skipping reference image');
+
+                return null;
+            }
+
+            return \Laravel\Ai\Files\Image::fromBase64($matches[2], $matches[1]);
+        }
+
+        // 4. Fallback: Raw base64 string
+        return \Laravel\Ai\Files\Image::fromBase64($input);
     }
 }

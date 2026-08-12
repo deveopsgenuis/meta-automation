@@ -27,6 +27,7 @@ class StoreAssetRequest extends FormRequest
                 'max:'.MediaType::Video->maxSizeInKb(),
                 'mimetypes:'.implode(',', $allowedMimes),
             ],
+            'collection' => ['sometimes', 'string', 'max:50'],
             'meta' => ['sometimes', 'array'],
             'meta.width' => ['sometimes', 'integer', 'min:1'],
             'meta.height' => ['sometimes', 'integer', 'min:1'],
