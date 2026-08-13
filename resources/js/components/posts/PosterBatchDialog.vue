@@ -4,6 +4,7 @@ import {
     IconAlertCircle,
     IconCheck,
     IconChevronDown,
+    IconFiles,
     IconPhoto,
     IconRefresh,
     IconSettings,
@@ -25,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import MediaPickerDialog from '@/components/posts/MediaPickerDialog.vue';
 import {
     batch as batchRoute,
     execute,
@@ -254,6 +256,31 @@ const handleReferenceImageUpload = async (event: Event) => {
 
 const removeReferenceImage = (index: number) => {
     referenceImages.value.splice(index, 1);
+};
+
+const mediaPicker = ref<InstanceType<typeof MediaPickerDialog>>();
+
+const openMediaPicker = () => {
+    mediaPicker.value?.open();
+};
+
+const handleMediaPickerSelect = (media: Array<{ id: string; path: string; url: string }>) => {
+    const remainingSlots = MAX_REFERENCE_IMAGES - referenceImages.value.length;
+    const toAdd = media.slice(0, remainingSlots);
+
+    for (const item of toAdd) {
+        const alreadyAdded = referenceImages.value.some(
+            (img) => img.path === item.path || img.id === item.id,
+        );
+        if (alreadyAdded) continue;
+
+        referenceImages.value.push({
+            id: item.id,
+            path: item.path,
+            url: item.url,
+            uploading: false,
+        });
+    }
 };
 
 const generatePlan = async () => {
@@ -798,8 +825,8 @@ const retryItem = async (itemId: string) => {
                     <div class="space-y-2">
                         <Label>Reference images</Label>
                         <p class="text-xs text-muted-foreground">
-                            Upload up to 6 images as visual reference for the
-                            poster generation.
+                            Upload up to 6 images or browse your media library
+                            as visual reference for the poster generation.
                         </p>
 
                         <div
@@ -833,26 +860,40 @@ const retryItem = async (itemId: string) => {
                             </div>
                         </div>
 
-                        <label
+                        <div
                             v-if="referenceImages.length < MAX_REFERENCE_IMAGES"
-                            class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-foreground/20 bg-muted/30 p-4 transition-colors hover:bg-muted/50"
+                            class="flex gap-2"
                         >
-                            <IconPhoto class="size-8 text-foreground/40" />
-                            <span
-                                class="text-xs font-medium text-foreground/60"
+                            <label
+                                class="flex flex-1 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-foreground/20 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
                             >
-                                Add images ({{ referenceImages.length }}/{{
-                                    MAX_REFERENCE_IMAGES
-                                }})
-                            </span>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                class="hidden"
-                                @change="handleReferenceImageUpload"
-                            />
-                        </label>
+                                <IconPhoto class="size-6 text-foreground/40" />
+                                <span
+                                    class="text-[11px] font-medium text-foreground/60"
+                                >
+                                    Upload
+                                </span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    class="hidden"
+                                    @change="handleReferenceImageUpload"
+                                />
+                            </label>
+                            <button
+                                type="button"
+                                class="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-violet-300 bg-violet-50/30 p-3 transition-colors hover:bg-violet-50 dark:border-violet-700 dark:bg-violet-950/30 dark:hover:bg-violet-950/50"
+                                @click="openMediaPicker"
+                            >
+                                <IconFiles class="size-6 text-violet-500" />
+                                <span
+                                    class="text-[11px] font-medium text-violet-600 dark:text-violet-400"
+                                >
+                                    Browse media
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -883,5 +924,7 @@ const retryItem = async (itemId: string) => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <MediaPickerDialog ref="mediaPicker" @select="handleMediaPickerSelect" />
     </div>
 </template>
