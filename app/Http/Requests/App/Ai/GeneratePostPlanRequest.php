@@ -21,6 +21,8 @@ class GeneratePostPlanRequest extends FormRequest
             'social_account_id' => ['nullable', 'string', 'exists:social_accounts,id'],
             'instruction' => ['nullable', 'string', 'max:1000'],
             'provider' => ['nullable', 'string', 'in:openai,gemini,anthropic'],
+            'reference_images' => ['nullable', 'array', 'max:6'],
+            'reference_images.*' => ['string'],
         ];
     }
 }

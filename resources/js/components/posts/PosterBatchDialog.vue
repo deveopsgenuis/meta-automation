@@ -261,6 +261,10 @@ const generatePlan = async () => {
     errorMessage.value = null;
 
     try {
+        const validPaths = referenceImages.value
+            .filter((img) => !img.uploading && img.path)
+            .map((img) => img.path);
+
         const response = await fetch(generate.url(), {
             method: 'POST',
             headers: {
@@ -273,6 +277,8 @@ const generatePlan = async () => {
                 start_date: props.startDate || undefined,
                 social_account_id: selectedSocialAccountId.value,
                 instruction: instruction.value,
+                reference_images:
+                    validPaths.length > 0 ? validPaths : undefined,
             }),
         });
 

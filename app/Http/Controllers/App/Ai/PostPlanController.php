@@ -9,6 +9,7 @@ use App\Http\Controllers\App\Controller;
 use App\Http\Requests\App\Ai\ExecutePostPlanRequest;
 use App\Http\Requests\App\Ai\GeneratePostPlanRequest;
 use App\Jobs\Ai\GeneratePosterBatchItem;
+use App\Models\Media;
 use App\Models\Post;
 use App\Models\PosterBatch;
 use App\Models\PosterBatchItem;
@@ -18,8 +19,11 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Laravel\Ai\Files\Base64Image;
+use Laravel\Ai\Files\Image as AiImage;
 use Symfony\Component\HttpFoundation\Response;
 
 class PostPlanController extends Controller
@@ -48,6 +52,7 @@ class PostPlanController extends Controller
         $startDate = (string) $request->input('start_date', now()->format('Y-m-d'));
         $socialAccountId = $request->input('social_account_id');
         $instruction = (string) $request->input('instruction', '');
+        $referenceImages = $request->input('reference_images', []);
 
         $channelPlatform = null;
         if ($socialAccountId) {
@@ -72,6 +77,16 @@ class PostPlanController extends Controller
             ->values()
             ->all();
 
+        $attachments = $this->parseReferenceImages($referenceImages);
+
+        Log::info('PostPlanController: generating plan', [
+            'workspace_id' => $workspace->id,
+            'total_posts' => $totalPosts,
+            'reference_images_count' => count($referenceImages),
+            'attachments_count' => count($attachments),
+            'reference_images_raw' => array_map(fn ($img) => is_string($img) ? substr($img, 0, 80) : $img, $referenceImages),
+        ]);
+
         $agent = new PostPlanGenerator(
             workspace: $workspace,
             totalPosts: $totalPosts,
@@ -80,9 +95,13 @@ class PostPlanController extends Controller
             instruction: $instruction,
             existingScheduledPosts: $existingScheduledPosts,
             provider: $request->input('provider'),
+            referenceImages: $referenceImages,
         );
 
-        $response = $agent->prompt("Generate a {$totalPosts}-day post and poster plan.");
+        $response = $agent->prompt(
+            "Generate a {$totalPosts}-day post and poster plan.",
+            $attachments,
+        );
 
         UserAiCreditService::consumeUse($user);
 
@@ -91,6 +110,12 @@ class PostPlanController extends Controller
         if (! is_array($plan)) {
             $plan = [];
         }
+
+        Log::info('PostPlanController: plan generated', [
+            'posts_count' => count($plan),
+            'has_reference_images' => count($referenceImages) > 0,
+            'sample_visual_prompt' => count($plan) > 0 ? substr((string) data_get($plan[0], 'post_visual_prompt', ''), 0, 200) : null,
+        ]);
 
         return response()->json([
             'posts' => $plan,
@@ -205,5 +230,93 @@ class PostPlanController extends Controller
         GeneratePosterBatchItem::dispatch($posterBatchItem->id);
 
         return response()->json(['message' => 'Retry queued successfully.'], Response::HTTP_OK);
+    }
+
+    /**
+     * Parse an array of reference image strings into Base64Image attachments for the AI agent.
+     *
+     * @param  array<int, string>  $referenceImages
+     * @return array<int, Base64Image>
+     */
+    private function parseReferenceImages(array $referenceImages): array
+    {
+        $attachments = [];
+
+        foreach ($referenceImages as $input) {
+            if (! is_string($input) || trim($input) === '') {
+                continue;
+            }
+
+            $input = trim($input);
+
+            // 1. Check if $input is a stored file path (e.g. "medias/xxxx.jpg")
+            if (Storage::exists($input) || Storage::disk('public')->exists($input)) {
+                $disk = Storage::exists($input) ? Storage::disk() : Storage::disk('public');
+                $bytes = $disk->get($input);
+                $mimeType = $disk->mimeType($input) ?: 'image/jpeg';
+                $base64 = base64_encode($bytes);
+
+                $attachments[] = AiImage::fromBase64($base64, $mimeType);
+
+                Log::info('PostPlanController: parsed reference image from storage', [
+                    'input' => substr($input, 0, 80),
+                    'mime_type' => $mimeType,
+                    'size' => strlen($bytes),
+                ]);
+
+                continue;
+            }
+
+            // 2. Check if $input is a Media record ID
+            if (Str::isUuid($input)) {
+                $media = Media::query()->find($input);
+                if ($media) {
+                    $disk = Storage::exists($media->path) ? Storage::disk() : (Storage::disk('public')->exists($media->path) ? Storage::disk('public') : null);
+                    if ($disk) {
+                        $bytes = $disk->get($media->path);
+                        $mimeType = $media->mime_type ?: ($disk->mimeType($media->path) ?: 'image/jpeg');
+                        $base64 = base64_encode($bytes);
+
+                        $attachments[] = AiImage::fromBase64($base64, $mimeType);
+
+                        Log::info('PostPlanController: parsed reference image from Media UUID', [
+                            'media_id' => $media->id,
+                            'mime_type' => $mimeType,
+                            'size' => strlen($bytes),
+                        ]);
+
+                        continue;
+                    }
+                }
+            }
+
+            // 3. Fallback: Data URI (data:image/png;base64,...)
+            if (str_starts_with($input, 'data:')) {
+                if (preg_match('/^data:([a-zA-Z0-9\/+\-]+);base64,(.+)$/s', $input, $matches)) {
+                    $attachments[] = AiImage::fromBase64($matches[2], $matches[1]);
+
+                    Log::info('PostPlanController: parsed reference image from data URI', [
+                        'mime_type' => $matches[1],
+                        'size' => strlen($matches[2]),
+                    ]);
+                }
+
+                continue;
+            }
+
+            // 4. Fallback: Raw base64 string
+            $attachments[] = AiImage::fromBase64($input);
+
+            Log::info('PostPlanController: parsed reference image from raw base64', [
+                'size' => strlen($input),
+            ]);
+        }
+
+        Log::info('PostPlanController: parseReferenceImages complete', [
+            'input_count' => count($referenceImages),
+            'output_count' => count($attachments),
+        ]);
+
+        return $attachments;
     }
 }

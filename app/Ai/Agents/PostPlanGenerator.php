@@ -31,6 +31,7 @@ class PostPlanGenerator implements Agent, HasStructuredOutput
         public array $existingScheduledPosts = [],
         public ?string $provider = null,
         public ?string $model = null,
+        public array $referenceImages = [],
     ) {}
 
     public function instructions(): string
@@ -44,6 +45,7 @@ class PostPlanGenerator implements Agent, HasStructuredOutput
             'content_language' => $this->workspace->content_language ?: 'en',
             'instruction' => $this->instruction,
             'existing_scheduled_posts' => $this->existingScheduledPosts,
+            'reference_images' => $this->referenceImages,
         ])->render();
     }
 

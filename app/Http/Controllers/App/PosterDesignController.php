@@ -10,6 +10,7 @@ use App\Models\Media;
 use App\Services\Ai\UserAiCreditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Ai\Files\Base64Image;
@@ -102,6 +103,12 @@ class PosterDesignController extends Controller
     {
         $attachments = $this->parseReferenceImages($referenceImages);
 
+        Log::info('PosterDesignController: running agent', [
+            'reference_images_input_count' => count($referenceImages),
+            'attachments_created_count' => count($attachments),
+            'prompt_length' => strlen($prompt),
+        ]);
+
         // Promptable trait provides the `prompt()` method
         return $agent->prompt($prompt, $attachments);
     }
@@ -134,6 +141,12 @@ class PosterDesignController extends Controller
 
                 $attachments[] = AiImage::fromBase64($base64, $mimeType);
 
+                Log::info('PosterDesignController: parsed reference image from storage', [
+                    'input' => substr($input, 0, 80),
+                    'mime_type' => $mimeType,
+                    'size' => strlen($bytes),
+                ]);
+
                 continue;
             }
 
@@ -149,6 +162,12 @@ class PosterDesignController extends Controller
 
                         $attachments[] = AiImage::fromBase64($base64, $mimeType);
 
+                        Log::info('PosterDesignController: parsed reference image from Media UUID', [
+                            'media_id' => $media->id,
+                            'mime_type' => $mimeType,
+                            'size' => strlen($bytes),
+                        ]);
+
                         continue;
                     }
                 }
@@ -158,6 +177,11 @@ class PosterDesignController extends Controller
             if (str_starts_with($input, 'data:')) {
                 if (preg_match('/^data:([a-zA-Z0-9\/+\-]+);base64,(.+)$/s', $input, $matches)) {
                     $attachments[] = AiImage::fromBase64($matches[2], $matches[1]);
+
+                    Log::info('PosterDesignController: parsed reference image from data URI', [
+                        'mime_type' => $matches[1],
+                        'size' => strlen($matches[2]),
+                    ]);
                 }
 
                 continue;
@@ -165,7 +189,16 @@ class PosterDesignController extends Controller
 
             // 4. Fallback: Raw base64 string
             $attachments[] = AiImage::fromBase64($input);
+
+            Log::info('PosterDesignController: parsed reference image from raw base64', [
+                'size' => strlen($input),
+            ]);
         }
+
+        Log::info('PosterDesignController: parseReferenceImages complete', [
+            'input_count' => count($referenceImages),
+            'output_count' => count($attachments),
+        ]);
 
         return $attachments;
     }
