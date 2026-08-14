@@ -113,11 +113,38 @@ class GenerateShortVideoBatchItem implements ShouldQueue
 
         $fullContent = trim($description."\n\n".$hashtags);
 
+        // Build frame images array from batch data
+        $frameImages = [];
+        $startFrame = $batch->start_frame_image ?? null;
+        $endFrame = $batch->end_frame_image ?? null;
+
+        if ($startFrame && is_array($startFrame)) {
+            $frameImages[] = [
+                'path' => $startFrame['path'] ?? '',
+                'frame_type' => 'first_frame',
+            ];
+        }
+
+        if ($endFrame && is_array($endFrame)) {
+            $frameImages[] = [
+                'path' => $endFrame['path'] ?? '',
+                'frame_type' => 'last_frame',
+            ];
+        }
+
+        Log::info('GenerateShortVideoBatchItem: frame images', [
+            'item_id' => $item->id,
+            'has_start_frame' => $startFrame !== null,
+            'has_end_frame' => $endFrame !== null,
+            'frame_images_count' => count($frameImages),
+        ]);
+
         $generator = new VideoGenerator;
         $result = $generator->generate(
             prompt: $videoPrompt,
             size: $batch->size ?? '9:16',
             quality: $batch->quality ?? '720p',
+            frameImages: $frameImages,
         );
 
         if ($result['error']) {

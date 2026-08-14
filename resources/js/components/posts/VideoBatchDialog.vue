@@ -2,8 +2,11 @@
 import { usePage } from '@inertiajs/vue3';
 import {
     IconAlertCircle,
+    IconArrowsSplit,
     IconCheck,
     IconChevronDown,
+    IconFiles,
+    IconPhoto,
     IconPlayerPlay,
     IconRefresh,
     IconSettings,
@@ -15,9 +18,11 @@ import { computed, onUnmounted, ref, watch } from 'vue';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import MediaPickerDialog from '@/components/posts/MediaPickerDialog.vue';
 
 interface SocialAccount {
     id: string;
@@ -91,6 +96,16 @@ const errorMessage = ref<string | null>(null);
 const selectedSize = ref('9:16');
 const selectedQuality = ref('720p');
 const totalVideos = ref(3);
+
+interface FrameImage {
+    path: string;
+    url: string;
+}
+
+const startFrameImage = ref<FrameImage | null>(null);
+const endFrameImage = ref<FrameImage | null>(null);
+const startFramePicker = ref<InstanceType<typeof MediaPickerDialog>>();
+const endFramePicker = ref<InstanceType<typeof MediaPickerDialog>>();
 
 const plan = ref<PlanItem[]>([]);
 const batch = ref<ActiveBatch | null>(null);
@@ -169,7 +184,29 @@ const resetState = () => {
     batch.value = null;
     isDirty.value = false;
     errorMessage.value = null;
+    startFrameImage.value = null;
+    endFrameImage.value = null;
     stopPolling();
+};
+
+const handleStartFrameSelect = (media: Array<{ path: string; url: string }>) => {
+    if (media.length > 0) {
+        startFrameImage.value = { path: media[0].path, url: media[0].url };
+    }
+};
+
+const handleEndFrameSelect = (media: Array<{ path: string; url: string }>) => {
+    if (media.length > 0) {
+        endFrameImage.value = { path: media[0].path, url: media[0].url };
+    }
+};
+
+const removeStartFrame = () => {
+    startFrameImage.value = null;
+};
+
+const removeEndFrame = () => {
+    endFrameImage.value = null;
 };
 
 const generatePlan = async () => {
@@ -228,6 +265,8 @@ const executePlan = async () => {
                 social_account_id: selectedSocialAccountId.value,
                 size: selectedSize.value,
                 quality: selectedQuality.value,
+                start_frame_image: startFrameImage.value ?? undefined,
+                end_frame_image: endFrameImage.value ?? undefined,
             }),
         });
 
@@ -561,7 +600,7 @@ const retryItem = async (itemId: string) => {
                 >
                     <IconSparkles class="size-4" />
                     <span>Instruction</span>
-                    <span v-if="instruction.trim()" class="size-2 rounded-full bg-violet-600"></span>
+                    <span v-if="instruction.trim() || startFrameImage || endFrameImage" class="size-2 rounded-full bg-violet-600"></span>
                 </button>
 
                 <!-- Action Button: Generate Plan OR Generate Videos -->
@@ -698,12 +737,95 @@ const retryItem = async (itemId: string) => {
                     </DialogDescription>
                 </DialogHeader>
 
-                <div class="space-y-3 py-2">
+                <div class="space-y-4 py-2">
                     <Textarea
                         v-model="instruction"
                         placeholder="Enter custom instructions or themes for this video series..."
                         rows="4"
                     />
+
+                    <!-- Start / End Frame Images -->
+                    <div class="space-y-3">
+                        <Label class="flex items-center gap-2">
+                            <IconArrowsSplit class="size-4" />
+                            Start / End Frame Images
+                        </Label>
+                        <p class="text-xs text-muted-foreground">
+                            Optionally provide a start frame and/or end frame image to guide the video generation.
+                        </p>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <!-- Start Frame -->
+                            <div class="space-y-1.5">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-foreground/60">Start Frame</span>
+                                <div
+                                    v-if="startFrameImage"
+                                    class="group relative size-28 overflow-hidden rounded-lg border-2 border-foreground/10"
+                                >
+                                    <img
+                                        :src="startFrameImage.url"
+                                        alt="Start frame"
+                                        class="size-full object-cover"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                        @click="removeStartFrame"
+                                    >
+                                        <IconX class="size-3" />
+                                    </button>
+                                </div>
+                                <div
+                                    v-else
+                                    class="flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-foreground/20 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+                                >
+                                    <button
+                                        type="button"
+                                        class="flex flex-col items-center gap-1"
+                                        @click="startFramePicker?.open()"
+                                    >
+                                        <IconPhoto class="size-5 text-foreground/40" />
+                                        <span class="text-[10px] font-medium text-foreground/60">Select image</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- End Frame -->
+                            <div class="space-y-1.5">
+                                <span class="text-[11px] font-bold uppercase tracking-wider text-foreground/60">End Frame</span>
+                                <div
+                                    v-if="endFrameImage"
+                                    class="group relative size-28 overflow-hidden rounded-lg border-2 border-foreground/10"
+                                >
+                                    <img
+                                        :src="endFrameImage.url"
+                                        alt="End frame"
+                                        class="size-full object-cover"
+                                    />
+                                    <button
+                                        type="button"
+                                        class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                        @click="removeEndFrame"
+                                    >
+                                        <IconX class="size-3" />
+                                    </button>
+                                </div>
+                                <div
+                                    v-else
+                                    class="flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-foreground/20 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+                                >
+                                    <button
+                                        type="button"
+                                        class="flex flex-col items-center gap-1"
+                                        @click="endFramePicker?.open()"
+                                    >
+                                        <IconPhoto class="size-5 text-foreground/40" />
+                                        <span class="text-[10px] font-medium text-foreground/60">Select image</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <DialogFooter>
@@ -728,5 +850,8 @@ const retryItem = async (itemId: string) => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <MediaPickerDialog ref="startFramePicker" @select="handleStartFrameSelect" />
+        <MediaPickerDialog ref="endFramePicker" @select="handleEndFrameSelect" />
     </div>
 </template>

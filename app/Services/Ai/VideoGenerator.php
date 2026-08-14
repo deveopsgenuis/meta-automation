@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai;
 
+use App\Models\Media;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -28,16 +29,17 @@ class VideoGenerator
     /**
      * Generate a short video via OpenRouter (submit + poll).
      *
+     * @param  array<int, array{path: string, frame_type: string}>  $frameImages
      * @return array{video_path: string|null, error: string|null}
      */
-    public function generate(string $prompt, string $size = '9:16', string $quality = '720p'): array
+    public function generate(string $prompt, string $size = '9:16', string $quality = '720p', array $frameImages = []): array
     {
         if ($this->apiKey === '') {
             return ['video_path' => null, 'error' => 'Video generator API key is not configured.'];
         }
 
         try {
-            return $this->generateViaOpenRouter($prompt, $size, $quality);
+            return $this->generateViaOpenRouter($prompt, $size, $quality, $frameImages);
         } catch (Throwable $e) {
             Log::error('VideoGenerator: generation failed', [
                 'model' => $this->model,
@@ -49,23 +51,47 @@ class VideoGenerator
     }
 
     /**
+     * @param  array<int, array{path: string, frame_type: string}>  $frameImages
      * @return array{video_path: string|null, error: string|null}
      */
-    private function generateViaOpenRouter(string $prompt, string $size, string $quality): array
+    private function generateViaOpenRouter(string $prompt, string $size, string $quality, array $frameImages = []): array
     {
         $baseUrl = $this->baseUrl ?: 'https://openrouter.ai/api/v1';
+
+        $payload = [
+            'model' => $this->model,
+            'prompt' => $prompt,
+            'size' => $this->mapSize($size),
+            'duration' => 6,
+        ];
+
+        $formattedFrames = $this->formatFrameImages($frameImages);
+
+        if ($formattedFrames !== []) {
+            $payload['frame_images'] = $formattedFrames;
+        }
+
+        Log::info('VideoGenerator: submitting request', [
+            'model' => $this->model,
+            'prompt_length' => strlen($prompt),
+            'size' => $size,
+            'frame_images_count' => count($formattedFrames),
+            'frame_types' => array_map(fn ($f) => $f['frame_type'] ?? 'unknown', $formattedFrames),
+        ]);
 
         // Step 1: Submit video generation request
         $submitResponse = Http::withHeaders([
             'Authorization' => "Bearer {$this->apiKey}",
             'Content-Type' => 'application/json',
-        ])->timeout(60)->post("{$baseUrl}/videos", [
-            'model' => $this->model,
-            'prompt' => $prompt,
-        ]);
+        ])->timeout(60)->post("{$baseUrl}/videos", $payload);
 
         if ($submitResponse->failed()) {
             $error = $submitResponse->json('error.message') ?? $submitResponse->json('error') ?? "HTTP {$submitResponse->status()}";
+
+            Log::error('VideoGenerator: submit failed', [
+                'status' => $submitResponse->status(),
+                'error' => $error,
+            ]);
 
             return ['video_path' => null, 'error' => "OpenRouter submit error: {$error}"];
         }
@@ -131,6 +157,83 @@ class VideoGenerator
         }
 
         return ['video_path' => null, 'error' => 'Video generation timed out after 10 minutes.'];
+    }
+
+    /**
+     * @param  array<int, array{path: string, frame_type: string}>  $frameImages
+     * @return array<int, array{type: string, image_url: array{url: string}, frame_type: string}>
+     */
+    private function formatFrameImages(array $frameImages): array
+    {
+        $formatted = [];
+
+        foreach ($frameImages as $frame) {
+            $path = $frame['path'] ?? '';
+            $frameType = $frame['frame_type'] ?? 'first_frame';
+
+            if ($path === '') {
+                continue;
+            }
+
+            $dataUri = $this->pathToDataUri($path);
+
+            if ($dataUri === null) {
+                Log::warning('VideoGenerator: could not convert frame image to data URI', [
+                    'path' => substr($path, 0, 80),
+                ]);
+
+                continue;
+            }
+
+            $formatted[] = [
+                'type' => 'image_url',
+                'image_url' => [
+                    'url' => $dataUri,
+                ],
+                'frame_type' => $frameType,
+            ];
+        }
+
+        return $formatted;
+    }
+
+    private function pathToDataUri(string $path): ?string
+    {
+        // Already a data URI
+        if (str_starts_with($path, 'data:')) {
+            return $path;
+        }
+
+        // Stored file path
+        if (Storage::disk('public')->exists($path)) {
+            $bytes = Storage::disk('public')->get($path);
+            $mimeType = Storage::disk('public')->mimeType($path) ?: 'image/jpeg';
+
+            return 'data:'.$mimeType.';base64,'.base64_encode($bytes);
+        }
+
+        // Media UUID
+        if (Str::isUuid($path)) {
+            $media = Media::query()->find($path);
+            if ($media && Storage::disk('public')->exists($media->path)) {
+                $bytes = Storage::disk('public')->get($media->path);
+                $mimeType = $media->mime_type ?: Storage::disk('public')->mimeType($media->path) ?: 'image/jpeg';
+
+                return 'data:'.$mimeType.';base64,'.base64_encode($bytes);
+            }
+        }
+
+        return null;
+    }
+
+    private function mapSize(string $size): string
+    {
+        return match ($size) {
+            '9:16' => '1280x720',
+            '16:9' => '720x1280',
+            '1:1' => '720x720',
+            default => '1280x720',
+        };
     }
 
     /**

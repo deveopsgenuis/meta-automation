@@ -18,6 +18,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
@@ -105,6 +106,8 @@ class ShortVideoPlanController extends Controller
         $socialAccountId = $request->input('social_account_id');
         $size = (string) $request->input('size', '9:16');
         $quality = (string) $request->input('quality', '720p');
+        $startFrameImage = $request->input('start_frame_image');
+        $endFrameImage = $request->input('end_frame_image');
 
         $user = $request->user();
         $requiredCredits = count($plan);
@@ -117,6 +120,15 @@ class ShortVideoPlanController extends Controller
             ], Response::HTTP_PAYMENT_REQUIRED);
         }
 
+        Log::info('ShortVideoPlanController: executing plan', [
+            'workspace_id' => $workspace->id,
+            'plan_count' => count($plan),
+            'has_start_frame' => $startFrameImage !== null,
+            'has_end_frame' => $endFrameImage !== null,
+            'start_frame_path' => is_array($startFrameImage) ? ($startFrameImage['path'] ?? null) : null,
+            'end_frame_path' => is_array($endFrameImage) ? ($endFrameImage['path'] ?? null) : null,
+        ]);
+
         $batch = VideoBatch::query()->create([
             'workspace_id' => $workspace->id,
             'user_id' => $request->user()->id,
@@ -125,6 +137,8 @@ class ShortVideoPlanController extends Controller
             'status' => 'generating',
             'size' => $size,
             'quality' => $quality,
+            'start_frame_image' => $startFrameImage,
+            'end_frame_image' => $endFrameImage,
             'total_items' => count($plan),
             'completed_items' => 0,
             'failed_items' => 0,

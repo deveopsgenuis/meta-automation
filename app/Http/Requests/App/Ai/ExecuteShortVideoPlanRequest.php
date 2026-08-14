@@ -25,6 +25,12 @@ class ExecuteShortVideoPlanRequest extends FormRequest
             'plan.*.post_hashtags' => ['nullable', 'string'],
             'size' => ['nullable', 'string', 'in:1:1,9:16,16:9'],
             'quality' => ['nullable', 'string', 'in:720p,1080p'],
+            'start_frame_image' => ['nullable', 'array'],
+            'start_frame_image.path' => ['required_with:start_frame_image', 'string'],
+            'start_frame_image.url' => ['nullable', 'string'],
+            'end_frame_image' => ['nullable', 'array'],
+            'end_frame_image.path' => ['required_with:end_frame_image', 'string'],
+            'end_frame_image.url' => ['nullable', 'string'],
         ];
     }
 }

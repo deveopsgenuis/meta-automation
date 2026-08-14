@@ -22,6 +22,8 @@ class VideoBatch extends Model
         'status',
         'size',
         'quality',
+        'start_frame_image',
+        'end_frame_image',
         'total_items',
         'completed_items',
         'failed_items',
@@ -31,6 +33,8 @@ class VideoBatch extends Model
     {
         return [
             'plan' => 'array',
+            'start_frame_image' => 'array',
+            'end_frame_image' => 'array',
             'total_items' => 'integer',
             'completed_items' => 'integer',
             'failed_items' => 'integer',
