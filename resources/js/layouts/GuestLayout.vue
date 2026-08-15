@@ -32,7 +32,7 @@ const currentYear = dayjs().year();
             <div class="mx-auto max-w-5xl px-6 py-8">
                 <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
                     <p class="text-sm text-muted-foreground">
-                        &copy; {{ currentYear }} TryPost. All rights reserved.
+                        &copy; {{ currentYear }} Metos. All rights reserved.
                     </p>
                     <nav class="flex gap-4 text-sm text-muted-foreground">
                         <Link href="/privacy" class="hover:text-foreground transition-colors">

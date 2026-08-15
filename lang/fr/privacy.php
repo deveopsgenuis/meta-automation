@@ -7,7 +7,7 @@ return [
 
     'last_updated' => 'Dernière mise à jour : 5 août 2026',
 
-    'intro' => 'Cette Politique de Confidentialité décrit comment Ai Digiweb SARL (« nous », « notre ») collecte, utilise et protège vos informations personnelles lorsque vous utilisez notre plateforme TryPost (le « Service »).',
+    'intro' => 'Cette Politique de Confidentialité décrit comment Ai Digiweb SARL (« nous », « notre ») collecte, utilise et protège vos informations personnelles lorsque vous utilisez notre plateforme Metos (le « Service »).',
 
     'sections' => [
 

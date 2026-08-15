@@ -7,7 +7,7 @@ return [
 
     'last_updated' => 'Last updated: August 5, 2026',
 
-    'intro' => 'This Privacy Policy describes how Ai Digiweb SARL ("we", "us", or "our") collects, uses, and protects your personal information when you use our platform TryPost (the "Service").',
+    'intro' => 'This Privacy Policy describes how Ai Digiweb SARL ("we", "us", or "our") collects, uses, and protects your personal information when you use our platform Metos (the "Service").',
 
     'sections' => [
 

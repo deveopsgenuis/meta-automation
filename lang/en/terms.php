@@ -7,7 +7,7 @@ return [
 
     'last_updated' => 'Last updated: August 5, 2026',
 
-    'intro' => 'These Terms of Service ("Terms") govern your access to and use of the TryPost platform ("Service") operated by Ai Digiweb SARL ("we", "us", or "our"). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree, do not use the Service.',
+    'intro' => 'These Terms of Service ("Terms") govern your access to and use of the Metos platform ("Service") operated by Ai Digiweb SARL ("we", "us", or "our"). By accessing or using the Service, you agree to be bound by these Terms. If you do not agree, do not use the Service.',
 
     'sections' => [
 

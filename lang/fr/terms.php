@@ -7,7 +7,7 @@ return [
 
     'last_updated' => 'Dernière mise à jour : 5 août 2026',
 
-    'intro' => 'Ces Conditions d\'Utilisation (« Conditions ») régissent votre accès et votre utilisation de la plateforme TryPost (« Service ») exploitée par Ai Digiweb SARL (« nous »). En accédant au Service ou en l\'utilisant, vous acceptez d\'être lié par ces Conditions. Si vous n\'êtes pas d\'accord, n\'utilisez pas le Service.',
+    'intro' => 'Ces Conditions d\'Utilisation (« Conditions ») régissent votre accès et votre utilisation de la plateforme Metos (« Service ») exploitée par Ai Digiweb SARL (« nous »). En accédant au Service ou en l\'utilisant, vous acceptez d\'être lié par ces Conditions. Si vous n\'êtes pas d\'accord, n\'utilisez pas le Service.',
 
     'sections' => [
 
