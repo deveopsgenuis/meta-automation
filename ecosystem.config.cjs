@@ -8,7 +8,8 @@ module.exports = {
       env: {
         PORT: '5053',
         APP_ENV: 'production',
-        APP_DEBUG: 'false'
+        APP_DEBUG: 'false',
+        WEBHOOK_URL: 'http://metos.site:5053'
       },
       watch: false,
       max_memory_restart: '500M',
@@ -27,7 +28,8 @@ module.exports = {
       env: {
         PORT: '5053',
         APP_ENV: 'production',
-        APP_DEBUG: 'false'
+        APP_DEBUG: 'false',
+        WEBHOOK_URL: 'http://metos.site:5053'
       },
       watch: false,
       max_memory_restart: '500M',
@@ -44,7 +46,8 @@ module.exports = {
       env: {
         PORT: '8080',
         APP_ENV: 'production',
-        APP_DEBUG: 'false'
+        APP_DEBUG: 'false',
+        WEBHOOK_URL: 'http://metos.site:5053'
       },
       watch: false,
       max_memory_restart: '256M',
@@ -61,7 +64,8 @@ module.exports = {
       env: {
         PORT: '5053',
         APP_ENV: 'production',
-        APP_DEBUG: 'false'
+        APP_DEBUG: 'false',
+        WEBHOOK_URL: 'http://metos.site:5053'
       },
       watch: false,
       max_memory_restart: '256M',
