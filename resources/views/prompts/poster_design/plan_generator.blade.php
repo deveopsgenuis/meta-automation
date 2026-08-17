@@ -49,11 +49,11 @@ IMPORTANT — post_visual_prompt must describe a COMPLETE, FINISHED POSTER, not 
 @endif
 
 Each post needs:
-1. post_description: Creative idea in the brand's tone.
+1. post_description: The actual social media caption or post text that users will read. Write a short, engaging paragraph (2-4 sentences) describing the post's message, tip, story, or promo in the brand's voice. This is NOT a visual prompt — do NOT include layout instructions, color palettes, typography, or image generation details here. Think of it as the text someone would write when publishing the post.
 2. post_hashtags: "#tag1 #tag2 #tag3", 3-6 relevant tags.
-3. post_visual_prompt: Full poster design prompt per the rules above — text, layout, graphics, palette, typography, composition — production-ready for an AI image generator with text rendering.
+3. post_visual_prompt: The image generation prompt describing the COMPLETE, FINISHED POSTER design — text, layout, graphics, palette, typography, composition. This is for the AI image model, NOT for human readers. It must NOT be used as post_description.
 4. poster_size: "1080*1080" default; "1080*1350" portrait or "1200*630" landscape if platform requires.
 5. scheduled_date: Strict YYYY-MM-DD, +1 day from {{ $start_date }}, no gaps. Must NOT conflict with any EXISTING SCHEDULED POSTS listed above.
 6. scheduled_time: HH:MM in 24h format (e.g. "09:00", "14:30"). Vary times across posts — do NOT use the same time for every post. Avoid times already taken by EXISTING SCHEDULED POSTS. Suggested slots: 08:00, 10:00, 12:00, 14:00, 16:00, 18:00.
 
-post_description and post_hashtags must be in {{ $content_language }}. post_visual_prompt itself should be written in English for the image model, but any on-poster text it specifies must be in {{ $content_language }}.
+CRITICAL RULE: post_description must be the human-readable social media text. post_visual_prompt must be the machine-readable image generation prompt. NEVER copy post_visual_prompt content into post_description.
