@@ -16,6 +16,10 @@ import {
     IconBrandWhatsapp,
     IconArrowRight,
     IconPlayerPlay,
+    IconPlayerPause,
+    IconVolume,
+    IconVolumeOff,
+    IconMaximize,
     IconCheck,
     IconBrandThreads,
     IconBrandPinterest,
@@ -58,6 +62,12 @@ const integrations = computed(() => trans('welcome.integration.items') as unknow
 
 const videoRef = ref<HTMLVideoElement | null>(null);
 const isVideoPlaying = ref(false);
+const isMuted = ref(true);
+const progress = ref(0);
+const duration = ref(0);
+const currentTime = ref(0);
+const showControls = ref(false);
+let controlsTimeout: ReturnType<typeof setTimeout> | null = null;
 
 const toggleVideo = () => {
     if (!videoRef.value) return;
@@ -67,6 +77,55 @@ const toggleVideo = () => {
         videoRef.value.play();
     }
     isVideoPlaying.value = !isVideoPlaying.value;
+};
+
+const toggleMute = () => {
+    if (!videoRef.value) return;
+    videoRef.value.muted = !videoRef.value.muted;
+    isMuted.value = videoRef.value.muted;
+};
+
+const toggleFullscreen = () => {
+    const container = videoRef.value?.closest('.video-container');
+    if (!container) return;
+    if (document.fullscreenElement) {
+        document.exitFullscreen();
+    } else {
+        container.requestFullscreen();
+    }
+};
+
+const onTimeUpdate = () => {
+    if (!videoRef.value) return;
+    currentTime.value = videoRef.value.currentTime;
+    progress.value = duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0;
+};
+
+const onLoadedMetadata = () => {
+    if (!videoRef.value) return;
+    duration.value = videoRef.value.duration;
+};
+
+const seekTo = (e: MouseEvent) => {
+    if (!videoRef.value) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percent = x / rect.width;
+    videoRef.value.currentTime = percent * duration.value;
+};
+
+const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+};
+
+const onVideoMouseMove = () => {
+    showControls.value = true;
+    if (controlsTimeout) clearTimeout(controlsTimeout);
+    controlsTimeout = setTimeout(() => {
+        if (isVideoPlaying.value) showControls.value = false;
+    }, 3000);
 };
 </script>
 
@@ -227,22 +286,30 @@ const toggleVideo = () => {
                 </div>
 
                 <div class="mx-auto mt-14 max-w-4xl">
-                    <div class="group relative overflow-hidden rounded-2xl border-2 border-foreground bg-card shadow-xl">
+                    <div
+                        class="video-container group relative overflow-hidden rounded-2xl border-2 border-foreground bg-card shadow-xl"
+                        @mousemove="onVideoMouseMove"
+                        @mouseleave="() => { if (isVideoPlaying) showControls = false; }"
+                    >
                         <!-- Video -->
                         <video
                             ref="videoRef"
                             class="aspect-video w-full bg-black object-contain"
                             preload="metadata"
                             playsinline
+                            muted
                             @ended="isVideoPlaying = false"
                             @pause="isVideoPlaying = false"
                             @play="isVideoPlaying = true"
+                            @timeupdate="onTimeUpdate"
+                            @loadedmetadata="onLoadedMetadata"
+                            @click="toggleVideo"
                         >
                             <source src="/images/videos/metos-videos.webm" type="video/webm" />
                             <source src="/images/videos/metos-videos-mp4.mp4" type="video/mp4" />
                         </video>
 
-                        <!-- Play button overlay (hidden when playing) -->
+                        <!-- Center play button (shown when paused) -->
                         <Transition
                             enter-active-class="transition-opacity duration-200"
                             leave-active-class="transition-opacity duration-200"
@@ -258,6 +325,70 @@ const toggleVideo = () => {
                                     <IconPlayerPlay class="size-8 text-primary sm:size-10" />
                                 </div>
                             </button>
+                        </Transition>
+
+                        <!-- Controls bar -->
+                        <Transition
+                            enter-active-class="transition-all duration-200"
+                            leave-active-class="transition-all duration-200"
+                            enter-from-class="opacity-0 translate-y-2"
+                            leave-to-class="opacity-0 translate-y-2"
+                        >
+                            <div
+                                v-show="showControls || !isVideoPlaying"
+                                class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-4 pt-10"
+                            >
+                                <!-- Progress bar -->
+                                <div
+                                    class="group/progress mb-3 h-1.5 w-full cursor-pointer rounded-full bg-white/20 transition-all hover:h-2.5"
+                                    @click="seekTo"
+                                >
+                                    <div
+                                        class="relative h-full rounded-full bg-primary transition-all"
+                                        :style="{ width: `${progress}%` }"
+                                    >
+                                        <div class="absolute right-0 top-1/2 size-3.5 -translate-y-1/2 translate-x-1/2 rounded-full border-2 border-white bg-primary opacity-0 transition-opacity group-hover/progress:opacity-100" />
+                                    </div>
+                                </div>
+
+                                <!-- Control buttons row -->
+                                <div class="flex items-center justify-between text-white">
+                                    <div class="flex items-center gap-3">
+                                        <!-- Play / Pause -->
+                                        <button
+                                            class="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/20"
+                                            @click="toggleVideo"
+                                        >
+                                            <IconPlayerPause v-if="isVideoPlaying" class="size-5" />
+                                            <IconPlayerPlay v-else class="size-5" />
+                                        </button>
+
+                                        <!-- Volume -->
+                                        <button
+                                            class="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/20"
+                                            @click="toggleMute"
+                                        >
+                                            <IconVolumeOff v-if="isMuted" class="size-5" />
+                                            <IconVolume v-else class="size-5" />
+                                        </button>
+
+                                        <!-- Time -->
+                                        <span class="select-none font-mono text-xs text-white/80">
+                                            {{ formatTime(currentTime) }} / {{ formatTime(duration) }}
+                                        </span>
+                                    </div>
+
+                                    <div class="flex items-center gap-2">
+                                        <!-- Fullscreen -->
+                                        <button
+                                            class="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/20"
+                                            @click="toggleFullscreen"
+                                        >
+                                            <IconMaximize class="size-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </Transition>
                     </div>
                 </div>
