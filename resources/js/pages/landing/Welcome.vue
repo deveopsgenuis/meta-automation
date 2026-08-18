@@ -10,7 +10,6 @@ import {
     IconBrandTiktok,
     IconBrandYoutube,
     IconWand,
-    IconCalendar,
     IconSparkles,
     IconCode,
     IconPlugConnected,
@@ -22,7 +21,7 @@ import {
     IconBrandPinterest,
 } from '@tabler/icons-vue';
 
-const WhatsAppNumber = '212636347318';
+const WhatsAppNumber = '212720989172';
 const WhatsAppMessage = computed(() => encodeURIComponent(trans('welcome.whatsapp.message')));
 const whatsappUrl = computed(() => `https://wa.me/${WhatsAppNumber}?text=${WhatsAppMessage.value}`);
 
@@ -57,7 +56,18 @@ const steps = computed(() => [
 
 const integrations = computed(() => trans('welcome.integration.items') as unknown as string[]);
 
+const videoRef = ref<HTMLVideoElement | null>(null);
 const isVideoPlaying = ref(false);
+
+const toggleVideo = () => {
+    if (!videoRef.value) return;
+    if (isVideoPlaying.value) {
+        videoRef.value.pause();
+    } else {
+        videoRef.value.play();
+    }
+    isVideoPlaying.value = !isVideoPlaying.value;
+};
 </script>
 
 <template>
@@ -194,7 +204,7 @@ const isVideoPlaying = ref(false);
                         </div>
                         <div class="mb-2 flex items-center gap-3">
                             <span class="text-xs font-black uppercase tracking-widest text-foreground/30">
-                                {{ $t('welcome.how_it_works.step', { number: index + 1 }) }}
+                                {{ $t('welcome.how_it_works.step', { number: index + 1 as any }) }}
                             </span>
                         </div>
                         <h3 class="font-display text-2xl font-normal text-foreground">{{ step.title }}</h3>
@@ -217,67 +227,38 @@ const isVideoPlaying = ref(false);
                 </div>
 
                 <div class="mx-auto mt-14 max-w-4xl">
-                    <div class="relative overflow-hidden rounded-2xl border-2 border-foreground bg-card shadow-xl">
-                        <div class="relative aspect-video bg-gradient-to-br from-violet-100 via-accent to-background">
-                            <div class="pointer-events-none absolute -top-20 -right-20 size-[300px] rounded-full bg-violet-200/40 blur-3xl" />
-                            <div class="pointer-events-none absolute -bottom-20 -left-20 size-[300px] rounded-full bg-fuchsia-200/30 blur-3xl" />
+                    <div class="group relative overflow-hidden rounded-2xl border-2 border-foreground bg-card shadow-xl">
+                        <!-- Video -->
+                        <video
+                            ref="videoRef"
+                            class="aspect-video w-full bg-black object-contain"
+                            preload="metadata"
+                            playsinline
+                            @ended="isVideoPlaying = false"
+                            @pause="isVideoPlaying = false"
+                            @play="isVideoPlaying = true"
+                        >
+                            <source src="/images/videos/metos-videos.webm" type="video/webm" />
+                            <source src="/images/videos/metos-videos-mp4.mp4" type="video/mp4" />
+                        </video>
 
-                            <div class="absolute inset-4 flex items-center justify-center sm:inset-8">
-                                <div class="w-full max-w-lg rounded-xl border-2 border-foreground bg-card shadow-lg">
-                                    <div class="flex items-center gap-2 border-b-2 border-foreground bg-muted px-4 py-2.5">
-                                        <div class="flex gap-1.5">
-                                            <span class="size-2.5 rounded-full border border-foreground bg-rose-300" />
-                                            <span class="size-2.5 rounded-full border border-foreground bg-amber-300" />
-                                            <span class="size-2.5 rounded-full border border-foreground bg-emerald-300" />
-                                        </div>
-                                        <span class="ml-2 text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
-                                            {{ $t('welcome.demo.dashboard') }}
-                                        </span>
-                                    </div>
-                                    <div class="space-y-3 p-4">
-                                        <div class="flex items-center gap-3 rounded-lg border-2 border-foreground/10 bg-muted/50 p-3">
-                                            <div class="flex size-8 items-center justify-center rounded-lg bg-primary/10">
-                                                <IconCalendar class="size-4 text-primary" />
-                                            </div>
-                                            <div class="flex-1">
-                                                <div class="h-2.5 w-32 rounded-full bg-foreground/10" />
-                                                <div class="mt-1.5 h-2 w-20 rounded-full bg-foreground/5" />
-                                            </div>
-                                            <IconCheck class="size-4 text-emerald-500" />
-                                        </div>
-                                        <div class="flex items-center gap-3 rounded-lg border-2 border-foreground/10 bg-muted/50 p-3">
-                                            <div class="flex size-8 items-center justify-center rounded-lg bg-primary/10">
-                                                <IconWand class="size-4 text-primary" />
-                                            </div>
-                                            <div class="flex-1">
-                                                <div class="h-2.5 w-28 rounded-full bg-foreground/10" />
-                                                <div class="mt-1.5 h-2 w-24 rounded-full bg-foreground/5" />
-                                            </div>
-                                            <IconCheck class="size-4 text-emerald-500" />
-                                        </div>
-                                        <div class="flex items-center gap-3 rounded-lg border-2 border-foreground/10 bg-muted/50 p-3">
-                                            <div class="flex size-8 items-center justify-center rounded-lg bg-primary/10">
-                                                <IconSparkles class="size-4 text-primary" />
-                                            </div>
-                                            <div class="flex-1">
-                                                <div class="h-2.5 w-36 rounded-full bg-foreground/10" />
-                                                <div class="mt-1.5 h-2 w-16 rounded-full bg-foreground/5" />
-                                            </div>
-                                            <IconCheck class="size-4 text-emerald-500" />
-                                        </div>
-                                    </div>
+                        <!-- Play button overlay (hidden when playing) -->
+                        <Transition
+                            enter-active-class="transition-opacity duration-200"
+                            leave-active-class="transition-opacity duration-200"
+                            enter-from-class="opacity-0"
+                            leave-to-class="opacity-0"
+                        >
+                            <button
+                                v-if="!isVideoPlaying"
+                                class="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/20"
+                                @click="toggleVideo"
+                            >
+                                <div class="flex size-20 items-center justify-center rounded-full border-2 border-foreground bg-card shadow-lg transition-all group-hover:scale-110 sm:size-24">
+                                    <IconPlayerPlay class="size-8 text-primary sm:size-10" />
                                 </div>
-                            </div>
-
-                            <div class="absolute inset-0 flex items-center justify-center">
-                                <button
-                                    class="group flex size-20 items-center justify-center rounded-full border-2 border-foreground bg-card shadow-lg transition-all hover:scale-110 hover:shadow-xl"
-                                    @click="isVideoPlaying = !isVideoPlaying"
-                                >
-                                    <IconPlayerPlay class="size-8 text-primary transition-transform group-hover:scale-110" />
-                                </button>
-                            </div>
-                        </div>
+                            </button>
+                        </Transition>
                     </div>
                 </div>
             </div>
