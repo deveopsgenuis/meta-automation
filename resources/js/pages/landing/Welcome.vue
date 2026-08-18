@@ -67,16 +67,33 @@ const progress = ref(0);
 const duration = ref(0);
 const currentTime = ref(0);
 const showControls = ref(false);
+const videoError = ref(false);
 let controlsTimeout: ReturnType<typeof setTimeout> | null = null;
+
+const playVideo = async () => {
+    if (!videoRef.value) return;
+    try {
+        await videoRef.value.play();
+        isVideoPlaying.value = true;
+        videoError.value = false;
+    } catch {
+        videoError.value = true;
+    }
+};
+
+const pauseVideo = () => {
+    if (!videoRef.value) return;
+    videoRef.value.pause();
+    isVideoPlaying.value = false;
+};
 
 const toggleVideo = () => {
     if (!videoRef.value) return;
     if (isVideoPlaying.value) {
-        videoRef.value.pause();
+        pauseVideo();
     } else {
-        videoRef.value.play();
+        playVideo();
     }
-    isVideoPlaying.value = !isVideoPlaying.value;
 };
 
 const toggleMute = () => {
@@ -90,6 +107,8 @@ const toggleFullscreen = () => {
     if (!container) return;
     if (document.fullscreenElement) {
         document.exitFullscreen();
+    } else if ((container as any).webkitRequestFullscreen) {
+        (container as any).webkitRequestFullscreen();
     } else {
         container.requestFullscreen();
     }
@@ -106,26 +125,43 @@ const onLoadedMetadata = () => {
     duration.value = videoRef.value.duration;
 };
 
-const seekTo = (e: MouseEvent) => {
+const seekTo = (e: MouseEvent | TouchEvent) => {
     if (!videoRef.value) return;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percent = x / rect.width;
+    let clientX: number;
+    if ('changedTouches' in e) {
+        clientX = e.changedTouches[0]?.clientX ?? 0;
+    } else if ('touches' in e) {
+        clientX = e.touches[0]?.clientX ?? 0;
+    } else {
+        clientX = e.clientX;
+    }
+    const x = clientX - rect.left;
+    const percent = Math.max(0, Math.min(1, x / rect.width));
     videoRef.value.currentTime = percent * duration.value;
 };
 
 const formatTime = (seconds: number) => {
+    if (!isFinite(seconds)) return '0:00';
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
 };
 
-const onVideoMouseMove = () => {
+const showControlsTemporarily = () => {
     showControls.value = true;
     if (controlsTimeout) clearTimeout(controlsTimeout);
     controlsTimeout = setTimeout(() => {
         if (isVideoPlaying.value) showControls.value = false;
     }, 3000);
+};
+
+const onVideoMouseMove = () => {
+    showControlsTemporarily();
+};
+
+const onVideoTouchStart = () => {
+    showControlsTemporarily();
 };
 </script>
 
@@ -289,6 +325,7 @@ const onVideoMouseMove = () => {
                     <div
                         class="video-container group relative overflow-hidden rounded-2xl border-2 border-foreground bg-card shadow-xl"
                         @mousemove="onVideoMouseMove"
+                        @touchstart="onVideoTouchStart"
                         @mouseleave="() => { if (isVideoPlaying) showControls = false; }"
                     >
                         <!-- Video -->
@@ -303,10 +340,9 @@ const onVideoMouseMove = () => {
                             @play="isVideoPlaying = true"
                             @timeupdate="onTimeUpdate"
                             @loadedmetadata="onLoadedMetadata"
-                            @click="toggleVideo"
                         >
-                            <source src="/images/videos/metos-videos.webm" type="video/webm" />
                             <source src="/images/videos/metos-videos-mp4.mp4" type="video/mp4" />
+                            <source src="/images/videos/metos-videos.webm" type="video/webm" />
                         </video>
 
                         <!-- Center play button (shown when paused) -->
@@ -318,8 +354,8 @@ const onVideoMouseMove = () => {
                         >
                             <button
                                 v-if="!isVideoPlaying"
-                                class="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/20"
-                                @click="toggleVideo"
+                                class="absolute inset-0 z-10 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/20"
+                                @pointerdown.prevent="toggleVideo"
                             >
                                 <div class="flex size-20 items-center justify-center rounded-full border-2 border-foreground bg-card shadow-lg transition-all group-hover:scale-110 sm:size-24">
                                     <IconPlayerPlay class="size-8 text-primary sm:size-10" />
@@ -336,12 +372,13 @@ const onVideoMouseMove = () => {
                         >
                             <div
                                 v-show="showControls || !isVideoPlaying"
-                                class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-4 pt-10"
+                                class="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-4 pt-10"
                             >
                                 <!-- Progress bar -->
                                 <div
-                                    class="group/progress mb-3 h-1.5 w-full cursor-pointer rounded-full bg-white/20 transition-all hover:h-2.5"
+                                    class="group/progress mb-3 h-1.5 w-full touch-manipulation rounded-full bg-white/20 transition-all hover:h-2.5"
                                     @click="seekTo"
+                                    @touchend="seekTo"
                                 >
                                     <div
                                         class="relative h-full rounded-full bg-primary transition-all"
@@ -353,10 +390,10 @@ const onVideoMouseMove = () => {
 
                                 <!-- Control buttons row -->
                                 <div class="flex items-center justify-between text-white">
-                                    <div class="flex items-center gap-3">
+                                    <div class="flex items-center gap-2 sm:gap-3">
                                         <!-- Play / Pause -->
                                         <button
-                                            class="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/20"
+                                            class="flex size-10 items-center justify-center rounded-lg transition-colors hover:bg-white/20 sm:size-9"
                                             @click="toggleVideo"
                                         >
                                             <IconPlayerPause v-if="isVideoPlaying" class="size-5" />
@@ -365,7 +402,7 @@ const onVideoMouseMove = () => {
 
                                         <!-- Volume -->
                                         <button
-                                            class="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/20"
+                                            class="flex size-10 items-center justify-center rounded-lg transition-colors hover:bg-white/20 sm:size-9"
                                             @click="toggleMute"
                                         >
                                             <IconVolumeOff v-if="isMuted" class="size-5" />
@@ -378,10 +415,10 @@ const onVideoMouseMove = () => {
                                         </span>
                                     </div>
 
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-1 sm:gap-2">
                                         <!-- Fullscreen -->
                                         <button
-                                            class="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/20"
+                                            class="flex size-10 items-center justify-center rounded-lg transition-colors hover:bg-white/20 sm:size-9"
                                             @click="toggleFullscreen"
                                         >
                                             <IconMaximize class="size-5" />
