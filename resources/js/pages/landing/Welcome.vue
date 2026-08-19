@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { trans } from 'laravel-vue-i18n';
 import {
     IconBrandInstagram,
@@ -20,6 +20,7 @@ import {
     IconVolume,
     IconVolumeOff,
     IconMaximize,
+    IconMinimize,
     IconCheck,
     IconBrandThreads,
     IconBrandPinterest,
@@ -102,17 +103,65 @@ const toggleMute = () => {
     isMuted.value = videoRef.value.muted;
 };
 
+const isFullscreen = ref(false);
+
+const isIOS = () => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
 const toggleFullscreen = () => {
-    const container = videoRef.value?.closest('.video-container');
-    if (!container) return;
-    if (document.fullscreenElement) {
-        document.exitFullscreen();
-    } else if ((container as any).webkitRequestFullscreen) {
-        (container as any).webkitRequestFullscreen();
-    } else {
-        container.requestFullscreen();
+    const video = videoRef.value;
+    if (!video) return;
+
+    if (isFullscreen.value) {
+        // Exit fullscreen
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else if ((document as any).webkitFullscreenElement) {
+            (document as any).webkitExitFullscreen();
+        } else if (isIOS()) {
+            // iOS exits fullscreen via native controls or swipe down
+            (video as any).webkitExitFullscreen?.();
+        }
+        isFullscreen.value = false;
+        return;
+    }
+
+    // Enter fullscreen
+    if (isIOS()) {
+        // iOS Safari: only the video element supports webkitEnterFullscreen
+        if ((video as any).webkitEnterFullscreen) {
+            (video as any).webkitEnterFullscreen();
+            isFullscreen.value = true;
+        }
+    } else if (video.requestFullscreen) {
+        // Standard API — go fullscreen on the video directly (not the container)
+        video.requestFullscreen();
+        isFullscreen.value = true;
+    } else if ((video as any).webkitRequestFullscreen) {
+        (video as any).webkitRequestFullscreen();
+        isFullscreen.value = true;
+    } else if ((video as any).msRequestFullscreen) {
+        (video as any).msRequestFullscreen();
+        isFullscreen.value = true;
     }
 };
+
+const onFullscreenChange = () => {
+    isFullscreen.value = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+};
+
+onMounted(() => {
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('fullscreenchange', onFullscreenChange);
+    document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
+    if (controlsTimeout) clearTimeout(controlsTimeout);
+});
 
 const onTimeUpdate = () => {
     if (!videoRef.value) return;
@@ -421,7 +470,8 @@ const onVideoTouchStart = () => {
                                             class="flex size-10 items-center justify-center rounded-lg transition-colors hover:bg-white/20 sm:size-9"
                                             @click="toggleFullscreen"
                                         >
-                                            <IconMaximize class="size-5" />
+                                            <IconMinimize v-if="isFullscreen" class="size-5" />
+                                            <IconMaximize v-else class="size-5" />
                                         </button>
                                     </div>
                                 </div>
