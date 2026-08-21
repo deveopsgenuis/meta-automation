@@ -1,6 +1,7 @@
 export const NodeType = {
     Trigger: 'trigger',
     Generate: 'generate',
+    GeneratePoster: 'generate_poster',
     Delay: 'delay',
     Condition: 'condition',
     Publish: 'publish',

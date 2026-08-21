@@ -4,6 +4,7 @@ import {
     IconClock,
     IconGitBranch,
     IconGripVertical,
+    IconPhoto,
     IconRss,
     IconSend,
     IconSparkles,
@@ -27,6 +28,7 @@ const categories = computed(() => [
         title: trans('automations.categories.content'),
         nodes: [
             { type: NodeType.Generate, label: trans('automations.nodes.generate'), icon: IconSparkles, accent: 'blue' },
+            { type: NodeType.GeneratePoster, label: trans('automations.nodes.generate_poster'), icon: IconPhoto, accent: 'violet' },
         ],
     },
     {

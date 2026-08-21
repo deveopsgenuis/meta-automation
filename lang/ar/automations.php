@@ -59,6 +59,7 @@ return [
     'node_type' => [
         'trigger' => 'مُشغّل',
         'generate' => 'إنشاء محتوى',
+        'generate_poster' => 'إنشاء ملصق',
         'delay' => 'تأخير',
         'condition' => 'شرط',
         'publish' => 'نشر',
@@ -210,6 +211,7 @@ return [
     'nodes' => [
         'trigger' => 'مُشغّل',
         'generate' => 'إنشاء',
+        'generate_poster' => 'إنشاء ملصق',
         'delay' => 'تأخير',
         'condition' => 'شرط',
         'publish' => 'نشر',
@@ -292,6 +294,24 @@ return [
                 'single' => 'مفرد',
                 'carousel' => 'عرض دائري',
             ],
+        ],
+        'generate_poster' => [
+            'social_accounts' => 'الحسابات الاجتماعية',
+            'social_accounts_empty' => 'لا توجد حسابات اجتماعية متصلة. اربط واحدًا أولًا.',
+            'poster_size' => 'حجم الملصق',
+            'poster_count' => 'الملصقات المراد إنشاؤها',
+            'prompt_template' => 'قالب الموجّه',
+            'prompt_template_hint' => 'اكتب {{ لإدراج بيانات من الخطوات السابقة.',
+            'template' => 'القالب',
+            'templates' => [
+                'single' => 'مفرد',
+                'carousel' => 'عرض دائري',
+            ],
+            'use_brand_voice' => 'استخدام صوت العلامة التجارية',
+            'use_brand_voice_hint' => 'طبّق وصف علامتك التجارية وصوتها.',
+            'use_brand_visuals' => 'استخدام العناصر المرئية للعلامة التجارية',
+            'use_brand_visuals_hint' => 'وجّه صور الذكاء الاصطناعي بألوان علامتك التجارية وهويتها.',
+            'account_summary' => '{1}حساب واحد|[2,10]:count حسابات|[11,*]:count حساب',
         ],
         'delay' => [
             'duration' => 'المدة',

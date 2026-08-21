@@ -30,6 +30,7 @@ import DelayNodeConfig from '@/components/automations/config/DelayNodeConfig.vue
 import EndNodeConfig from '@/components/automations/config/EndNodeConfig.vue';
 import FetchRssNodeConfig from '@/components/automations/config/FetchRssNodeConfig.vue';
 import GenerateNodeConfig from '@/components/automations/config/GenerateNodeConfig.vue';
+import GeneratePosterNodeConfig from '@/components/automations/config/GeneratePosterNodeConfig.vue';
 import HttpRequestNodeConfig from '@/components/automations/config/HttpRequestNodeConfig.vue';
 import PublishNodeConfig from '@/components/automations/config/PublishNodeConfig.vue';
 import TriggerNodeConfig from '@/components/automations/config/TriggerNodeConfig.vue';
@@ -41,6 +42,7 @@ import DelayNode from '@/components/automations/nodes/DelayNode.vue';
 import EndNode from '@/components/automations/nodes/EndNode.vue';
 import FetchRssNode from '@/components/automations/nodes/FetchRssNode.vue';
 import GenerateNode from '@/components/automations/nodes/GenerateNode.vue';
+import GeneratePosterNode from '@/components/automations/nodes/GeneratePosterNode.vue';
 import HttpRequestNode from '@/components/automations/nodes/HttpRequestNode.vue';
 import PublishNode from '@/components/automations/nodes/PublishNode.vue';
 import TriggerNode from '@/components/automations/nodes/TriggerNode.vue';
@@ -75,6 +77,7 @@ const props = defineProps<{ automation: Automation }>();
 const nodeTypes = {
     [NodeType.Trigger]: markRaw(TriggerNode),
     [NodeType.Generate]: markRaw(GenerateNode),
+    [NodeType.GeneratePoster]: markRaw(GeneratePosterNode),
     [NodeType.Delay]: markRaw(DelayNode),
     [NodeType.Condition]: markRaw(ConditionNode),
     [NodeType.Publish]: markRaw(PublishNode),
@@ -87,6 +90,7 @@ const nodeTypes = {
 const configByType: Record<string, unknown> = {
     [NodeType.Trigger]: TriggerNodeConfig,
     [NodeType.Generate]: GenerateNodeConfig,
+    [NodeType.GeneratePoster]: GeneratePosterNodeConfig,
     [NodeType.Delay]: DelayNodeConfig,
     [NodeType.Condition]: ConditionNodeConfig,
     [NodeType.Publish]: PublishNodeConfig,
@@ -460,7 +464,6 @@ const defaultEdgeOptions = {
                             <TooltipTrigger as-child>
                                 <Button
                                     as="a"
-                                    href="https://docs.trypost.it/knowledge-base/automations/introduction"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     variant="outline"

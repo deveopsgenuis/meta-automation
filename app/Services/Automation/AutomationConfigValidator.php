@@ -35,6 +35,7 @@ final class AutomationConfigValidator
 
             [$field, $message] = match (data_get($node, 'type')) {
                 NodeType::Generate->value => ['accounts', $this->generateValidator->issueFor($config)],
+                NodeType::GeneratePoster->value => ['accounts', $this->generateValidator->issueFor($config)],
                 NodeType::Webhook->value => ['payload_template', $this->webhookValidator->issueFor($config)],
                 default => [null, null],
             };

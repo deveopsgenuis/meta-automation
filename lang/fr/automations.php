@@ -59,6 +59,7 @@ return [
     'node_type' => [
         'trigger' => 'Déclencheur',
         'generate' => 'Générer du contenu',
+        'generate_poster' => 'Générer une affiche',
         'delay' => 'Délai',
         'condition' => 'Condition',
         'publish' => 'Publier',
@@ -210,6 +211,7 @@ return [
     'nodes' => [
         'trigger' => 'Déclencheur',
         'generate' => 'Générer',
+        'generate_poster' => 'Générer une affiche',
         'delay' => 'Délai',
         'condition' => 'Condition',
         'publish' => 'Publier',
@@ -292,6 +294,24 @@ return [
                 'single' => 'unique',
                 'carousel' => 'carrousel',
             ],
+        ],
+        'generate_poster' => [
+            'social_accounts' => 'Comptes sociaux',
+            'social_accounts_empty' => 'Aucun compte social connecté. Connectez-en un d\'abord.',
+            'poster_size' => 'Taille de l\'affiche',
+            'poster_count' => 'Affiches à générer',
+            'prompt_template' => 'Modèle de prompt',
+            'prompt_template_hint' => 'Tapez {{ pour insérer des données des étapes précédentes.',
+            'template' => 'Modèle',
+            'templates' => [
+                'single' => 'Unique',
+                'carousel' => 'Carrousel',
+            ],
+            'use_brand_voice' => 'Utiliser la voix de la marque',
+            'use_brand_voice_hint' => 'Appliquez la description et la voix de votre marque.',
+            'use_brand_visuals' => 'Utiliser les visuels de la marque',
+            'use_brand_visuals_hint' => 'Orientez les images de l\'IA avec les couleurs et l\'identité de votre marque.',
+            'account_summary' => ':count compte|:count comptes',
         ],
         'delay' => [
             'duration' => 'Durée',

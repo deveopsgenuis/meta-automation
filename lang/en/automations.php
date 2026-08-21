@@ -59,6 +59,7 @@ return [
     'node_type' => [
         'trigger' => 'Trigger',
         'generate' => 'Generate content',
+        'generate_poster' => 'Generate poster',
         'delay' => 'Delay',
         'condition' => 'Condition',
         'publish' => 'Publish',
@@ -210,6 +211,7 @@ return [
     'nodes' => [
         'trigger' => 'Trigger',
         'generate' => 'Generate',
+        'generate_poster' => 'Generate Poster',
         'delay' => 'Delay',
         'condition' => 'Condition',
         'publish' => 'Publish',
@@ -292,6 +294,24 @@ return [
                 'single' => 'single',
                 'carousel' => 'carousel',
             ],
+        ],
+        'generate_poster' => [
+            'social_accounts' => 'Social accounts',
+            'social_accounts_empty' => 'No connected social accounts. Connect one first.',
+            'poster_size' => 'Poster size',
+            'poster_count' => 'Posters to generate',
+            'prompt_template' => 'Prompt template',
+            'prompt_template_hint' => 'Type {{ to insert data from earlier steps.',
+            'template' => 'Template',
+            'templates' => [
+                'single' => 'Single',
+                'carousel' => 'Carousel',
+            ],
+            'use_brand_voice' => 'Use brand voice',
+            'use_brand_voice_hint' => 'Apply your brand description and voice.',
+            'use_brand_visuals' => 'Use brand visuals',
+            'use_brand_visuals_hint' => 'Steer AI images with your brand colors and identity.',
+            'account_summary' => ':count account|:count accounts',
         ],
         'delay' => [
             'duration' => 'Duration',

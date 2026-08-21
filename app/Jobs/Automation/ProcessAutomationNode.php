@@ -9,6 +9,7 @@ use App\Actions\Automation\Node\RunDelayNode;
 use App\Actions\Automation\Node\RunEndNode;
 use App\Actions\Automation\Node\RunFetchRssNode;
 use App\Actions\Automation\Node\RunGenerateNode;
+use App\Actions\Automation\Node\RunGeneratePosterNode;
 use App\Actions\Automation\Node\RunHttpRequestNode;
 use App\Actions\Automation\Node\RunPublishNode;
 use App\Actions\Automation\Node\RunWebhookNode;
@@ -140,6 +141,7 @@ class ProcessAutomationNode implements ShouldQueue
     {
         $handler = match ($type) {
             NodeType::Generate => app(RunGenerateNode::class),
+            NodeType::GeneratePoster => app(RunGeneratePosterNode::class),
             NodeType::Delay => app(RunDelayNode::class),
             NodeType::Condition => app(RunConditionNode::class),
             NodeType::Publish => app(RunPublishNode::class),

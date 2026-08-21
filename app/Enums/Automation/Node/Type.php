@@ -8,6 +8,7 @@ enum Type: string
 {
     case Trigger = 'trigger';
     case Generate = 'generate';
+    case GeneratePoster = 'generate_poster';
     case Delay = 'delay';
     case Condition = 'condition';
     case Publish = 'publish';
