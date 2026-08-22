@@ -10,6 +10,7 @@ use App\Enums\Post\Status as PostStatus;
 use App\Jobs\PublishPost;
 use App\Models\AutomationRun;
 use App\Models\Post;
+use Illuminate\Support\Facades\Log;
 
 class RunPublishNode
 {
@@ -17,10 +18,21 @@ class RunPublishNode
     {
         $mode = Mode::from(data_get($config, 'mode', 'now'));
 
+        Log::info('RunPublishNode: starting', [
+            'run_id' => $run->id,
+            'mode' => $mode->value,
+            'is_dry_run' => $run->is_dry_run,
+            'generated_post_id' => $run->generated_post_id,
+        ]);
+
         // Dry runs never have a generated Post (RunGenerateNode skipped
         // persistence). Mirror the call site without touching the DB or
         // queueing PublishPost.
         if ($run->is_dry_run) {
+            Log::info('RunPublishNode: dry run, skipping', [
+                'run_id' => $run->id,
+            ]);
+
             return NodeRunResult::completed(output: [
                 'publish' => ['mode' => $mode->value, 'post_id' => null, 'dry_run' => true],
             ]);
@@ -29,8 +41,20 @@ class RunPublishNode
         $post = $run->generatedPost;
 
         if ($post === null) {
+            Log::error('RunPublishNode: no generated post found', [
+                'run_id' => $run->id,
+                'generated_post_id' => $run->generated_post_id,
+                'context' => $run->context ?? [],
+            ]);
+
             return NodeRunResult::failed(__('automations.errors.no_generated_post'));
         }
+
+        Log::info('RunPublishNode: publishing post', [
+            'run_id' => $run->id,
+            'post_id' => $post->id,
+            'post_status' => $post->status->value,
+        ]);
 
         match ($mode) {
             Mode::Now => $this->publishNow($post),

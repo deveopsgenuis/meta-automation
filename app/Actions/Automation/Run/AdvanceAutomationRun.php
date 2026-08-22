@@ -8,6 +8,7 @@ use App\Enums\Automation\Run\Status;
 use App\Jobs\Automation\ProcessAutomationNode;
 use App\Models\Automation;
 use App\Models\AutomationRun;
+use Illuminate\Support\Facades\Log;
 
 class AdvanceAutomationRun
 {
@@ -15,7 +16,21 @@ class AdvanceAutomationRun
     {
         $targets = $this->targetsFor($run->automation, $fromNodeId, $handle);
 
+        Log::info('AdvanceAutomationRun: resolving targets', [
+            'run_id' => $run->id,
+            'from_node_id' => $fromNodeId,
+            'handle' => $handle,
+            'target_count' => count($targets),
+            'targets' => $targets,
+        ]);
+
         if ($targets === []) {
+            Log::info('AdvanceAutomationRun: no more targets, completing run', [
+                'run_id' => $run->id,
+                'from_node_id' => $fromNodeId,
+                'handle' => $handle,
+            ]);
+
             $run->update([
                 'status' => Status::Completed,
                 'finished_at' => now(),
@@ -59,6 +74,13 @@ class AdvanceAutomationRun
     {
         $first = array_shift($targets);
 
+        Log::info('AdvanceAutomationRun: dispatching branches', [
+            'run_id' => $run->id,
+            'first_target' => $first,
+            'sibling_count' => count($targets),
+            'sibling_targets' => $targets,
+        ]);
+
         foreach ($targets as $target) {
             $sibling = AutomationRun::create([
                 'automation_id' => $run->automation_id,
@@ -71,8 +93,18 @@ class AdvanceAutomationRun
                 'context' => $run->context,
             ]);
 
+            Log::info('AdvanceAutomationRun: dispatching sibling run', [
+                'sibling_run_id' => $sibling->id,
+                'target_node_id' => $target,
+            ]);
+
             ProcessAutomationNode::dispatch($sibling, $target);
         }
+
+        Log::info('AdvanceAutomationRun: dispatching main branch', [
+            'run_id' => $run->id,
+            'target_node_id' => $first,
+        ]);
 
         ProcessAutomationNode::dispatch($run, $first);
     }

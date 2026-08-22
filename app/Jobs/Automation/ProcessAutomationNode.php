@@ -26,6 +26,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use LogicException;
 use Throwable;
 
@@ -46,17 +47,43 @@ class ProcessAutomationNode implements ShouldQueue
     {
         $this->run->refresh();
 
+        Log::info('ProcessAutomationNode: starting', [
+            'run_id' => $this->run->id,
+            'node_id' => $this->nodeId,
+            'run_status' => $this->run->status->value,
+            'is_manual' => $this->run->is_manual,
+            'automation_status' => $this->run->automation->status->value,
+        ]);
+
         if (! in_array($this->run->status, [RunStatus::Pending, RunStatus::Running, RunStatus::Waiting], true)) {
+            Log::info('ProcessAutomationNode: skipping — run status not processable', [
+                'run_id' => $this->run->id,
+                'status' => $this->run->status->value,
+            ]);
+
             return;
         }
 
         if (! $this->run->is_manual && $this->run->automation->status !== AutomationStatus::Active) {
+            Log::info('ProcessAutomationNode: skipping — automation not active', [
+                'run_id' => $this->run->id,
+                'automation_id' => $this->run->automation_id,
+                'automation_status' => $this->run->automation->status->value,
+            ]);
+
             return;
         }
 
         $node = collect($this->run->automation->nodes ?? [])->firstWhere('id', $this->nodeId);
 
         if ($node === null) {
+            Log::error('ProcessAutomationNode: node not found in automation', [
+                'run_id' => $this->run->id,
+                'node_id' => $this->nodeId,
+                'automation_id' => $this->run->automation_id,
+                'available_nodes' => collect($this->run->automation->nodes ?? [])->pluck('id')->values()->all(),
+            ]);
+
             $this->run->update([
                 'status' => RunStatus::Failed,
                 'error' => ['message' => __('automations.errors.node_no_longer_exists', ['node_id' => $this->nodeId])],
@@ -67,6 +94,13 @@ class ProcessAutomationNode implements ShouldQueue
         }
 
         $nodeType = NodeType::from($node['type']);
+
+        Log::info('ProcessAutomationNode: executing node', [
+            'run_id' => $this->run->id,
+            'node_id' => $this->nodeId,
+            'node_type' => $nodeType->value,
+            'config_keys' => array_keys($node['data'] ?? []),
+        ]);
 
         $this->run->update([
             'status' => RunStatus::Running,
@@ -85,7 +119,27 @@ class ProcessAutomationNode implements ShouldQueue
 
         try {
             $result = $this->executeNode($nodeType, $node['data'] ?? []);
+
+            Log::info('ProcessAutomationNode: node executed successfully', [
+                'run_id' => $this->run->id,
+                'node_id' => $this->nodeId,
+                'node_type' => $nodeType->value,
+                'result_status' => $result->status->value,
+                'result_next_handle' => $result->nextHandle,
+                'has_error' => $result->error !== null,
+                'output' => $result->output,
+            ]);
         } catch (Throwable $e) {
+            Log::error('ProcessAutomationNode: node execution threw exception', [
+                'run_id' => $this->run->id,
+                'node_id' => $this->nodeId,
+                'node_type' => $nodeType->value,
+                'exception_class' => $e::class,
+                'exception_message' => $e->getMessage(),
+                'exception_file' => $e->getFile(),
+                'exception_line' => $e->getLine(),
+            ]);
+
             $result = NodeRunResult::failed($e->getMessage(), ['class' => $e::class]);
         }
 
@@ -97,6 +151,13 @@ class ProcessAutomationNode implements ShouldQueue
         ]);
 
         if ($result->status === NodeRunStatus::Failed) {
+            Log::error('ProcessAutomationNode: node failed', [
+                'run_id' => $this->run->id,
+                'node_id' => $this->nodeId,
+                'node_type' => $nodeType->value,
+                'error' => $result->error,
+            ]);
+
             $this->run->update([
                 'status' => RunStatus::Failed,
                 'error' => array_merge(['node_id' => $this->nodeId], $result->error ?? []),
@@ -111,6 +172,12 @@ class ProcessAutomationNode implements ShouldQueue
         ]);
 
         if ($result->sleepUntil !== null) {
+            Log::info('ProcessAutomationNode: node sleeping until', [
+                'run_id' => $this->run->id,
+                'node_id' => $this->nodeId,
+                'sleep_until' => $result->sleepUntil->toIso8601String(),
+            ]);
+
             $this->run->update([
                 'status' => RunStatus::Waiting,
                 'next_action_at' => $result->sleepUntil,
@@ -119,12 +186,26 @@ class ProcessAutomationNode implements ShouldQueue
             return;
         }
 
+        Log::info('ProcessAutomationNode: advancing to next node', [
+            'run_id' => $this->run->id,
+            'from_node_id' => $this->nodeId,
+            'next_handle' => $result->nextHandle,
+        ]);
+
         $advance($this->run, $this->nodeId, $result->nextHandle);
     }
 
     public function failed(?Throwable $e): void
     {
         $this->run->refresh();
+
+        Log::error('ProcessAutomationNode: job failed (Laravel exception handler)', [
+            'run_id' => $this->run->id,
+            'node_id' => $this->nodeId,
+            'exception_message' => $e?->getMessage(),
+            'exception_class' => $e::class,
+            'run_status' => $this->run->status->value,
+        ]);
 
         if (in_array($this->run->status, [RunStatus::Completed, RunStatus::Failed], true)) {
             return;

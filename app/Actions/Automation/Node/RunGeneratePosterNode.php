@@ -27,8 +27,19 @@ class RunGeneratePosterNode
 
     public function __invoke(AutomationRun $run, array $config): NodeRunResult
     {
+        Log::info('RunGeneratePosterNode: starting', [
+            'run_id' => $run->id,
+            'config' => $config,
+        ]);
+
         $context = $run->resolverContext();
         $prompt = $this->resolver->resolve((string) data_get($config, 'prompt_template', ''), $context);
+
+        Log::info('RunGeneratePosterNode: resolved prompt', [
+            'run_id' => $run->id,
+            'prompt_length' => strlen($prompt),
+            'prompt_preview' => substr($prompt, 0, 200),
+        ]);
 
         $workspace = $run->automation->workspace;
 
@@ -38,6 +49,16 @@ class RunGeneratePosterNode
         $template = (string) data_get($config, 'template', 'single');
         $applyBrandVoice = (bool) data_get($config, 'use_brand_voice', true);
         $applyBrandVisuals = (bool) data_get($config, 'use_brand_visuals', true);
+
+        Log::info('RunGeneratePosterNode: parsed config', [
+            'run_id' => $run->id,
+            'accounts_count' => count($accountsConfig),
+            'poster_size' => $posterSize,
+            'poster_count' => $posterCount,
+            'template' => $template,
+            'apply_brand_voice' => $applyBrandVoice,
+            'apply_brand_visuals' => $applyBrandVisuals,
+        ]);
 
         $accountIds = array_values(array_filter(array_map(
             fn ($a) => data_get($a, 'social_account_id'),
@@ -51,12 +72,25 @@ class RunGeneratePosterNode
             ->get()
             ->keyBy('id');
 
+        Log::info('RunGeneratePosterNode: resolved accounts', [
+            'run_id' => $run->id,
+            'requested_account_ids' => $accountIds,
+            'active_account_ids' => $activeAccounts->keys()->all(),
+            'workspace_id' => $workspace->id,
+        ]);
+
         $orientation = $this->sizeToOrientation($posterSize);
 
         $platforms = [];
         foreach ($accountsConfig as $entry) {
             $accountId = data_get($entry, 'social_account_id');
             if (! $accountId || ! $activeAccounts->has($accountId)) {
+                Log::info('RunGeneratePosterNode: skipping inactive account', [
+                    'run_id' => $run->id,
+                    'account_id' => $accountId,
+                    'is_active' => $activeAccounts->has((string) $accountId),
+                ]);
+
                 continue;
             }
             $platforms[] = [
@@ -66,6 +100,12 @@ class RunGeneratePosterNode
             ];
         }
 
+        Log::info('RunGeneratePosterNode: resolved platforms', [
+            'run_id' => $run->id,
+            'platform_count' => count($platforms),
+            'platforms' => $platforms,
+        ]);
+
         $generatedPosts = [];
 
         for ($i = 0; $i < $posterCount; $i++) {
@@ -74,7 +114,21 @@ class RunGeneratePosterNode
                 : $prompt;
 
             try {
+                Log::info('RunGeneratePosterNode: generating poster image', [
+                    'run_id' => $run->id,
+                    'poster_index' => $i,
+                    'orientation' => $orientation,
+                    'prompt_length' => strlen($posterPrompt),
+                ]);
+
                 $imageBytes = $this->generatePosterImage($posterPrompt, $orientation);
+
+                Log::info('RunGeneratePosterNode: image generation result', [
+                    'run_id' => $run->id,
+                    'poster_index' => $i,
+                    'image_generated' => $imageBytes !== null,
+                    'image_bytes' => $imageBytes !== null ? strlen($imageBytes) : 0,
+                ]);
 
                 $mediaItem = null;
                 if ($imageBytes !== null) {
@@ -89,9 +143,20 @@ class RunGeneratePosterNode
                         'mime_type' => 'image/png',
                         'source' => 'ai',
                     ];
+
+                    Log::info('RunGeneratePosterNode: image saved', [
+                        'run_id' => $run->id,
+                        'poster_index' => $i,
+                        'path' => $path,
+                    ]);
                 }
 
                 if ($run->is_dry_run) {
+                    Log::info('RunGeneratePosterNode: dry run, skipping post creation', [
+                        'run_id' => $run->id,
+                        'poster_index' => $i,
+                    ]);
+
                     $generatedPosts[] = [
                         'post_id' => null,
                         'content' => $posterPrompt,
@@ -104,11 +169,26 @@ class RunGeneratePosterNode
 
                 $user = $this->resolveUser($run);
 
+                Log::info('RunGeneratePosterNode: creating post', [
+                    'run_id' => $run->id,
+                    'poster_index' => $i,
+                    'user_id' => $user->id,
+                    'workspace_id' => $workspace->id,
+                    'platform_count' => count($platforms),
+                    'has_media' => $mediaItem !== null,
+                ]);
+
                 $post = CreatePost::execute($workspace, $user, [
                     'content' => $posterPrompt,
                     'media' => $mediaItem ? [$mediaItem] : [],
                     'platforms' => $platforms,
                     'created_via' => CreatedVia::Automation,
+                ]);
+
+                Log::info('RunGeneratePosterNode: post created', [
+                    'run_id' => $run->id,
+                    'poster_index' => $i,
+                    'post_id' => $post->id,
                 ]);
 
                 $generatedPosts[] = [
@@ -119,8 +199,12 @@ class RunGeneratePosterNode
                 ];
             } catch (Throwable $e) {
                 Log::error('RunGeneratePosterNode: poster generation failed', [
+                    'run_id' => $run->id,
                     'poster_index' => $i,
                     'error' => $e->getMessage(),
+                    'exception_class' => $e::class,
+                    'exception_file' => $e->getFile(),
+                    'exception_line' => $e->getLine(),
                 ]);
 
                 $generatedPosts[] = [
@@ -148,6 +232,12 @@ class RunGeneratePosterNode
     {
         $model = (string) config('ai.default_image_model');
 
+        Log::info('RunGeneratePosterNode: generating image via Laravel Ai', [
+            'model' => $model,
+            'orientation' => $orientation,
+            'prompt_length' => strlen($prompt),
+        ]);
+
         try {
             $builder = Image::of($prompt)->quality('low')->timeout(180);
 
@@ -160,10 +250,16 @@ class RunGeneratePosterNode
             $image = $builder->generate(model: $model);
             $bytes = (string) $image;
 
+            Log::info('RunGeneratePosterNode: Laravel Ai image result', [
+                'bytes_length' => strlen($bytes),
+                'is_empty' => $bytes === '',
+            ]);
+
             return $bytes !== '' ? $bytes : null;
         } catch (Throwable $e) {
-            Log::warning('RunGeneratePosterNode: image generation failed, trying OpenRouter fallback', [
+            Log::warning('RunGeneratePosterNode: Laravel Ai image generation failed, trying OpenRouter fallback', [
                 'error' => $e->getMessage(),
+                'exception_class' => $e::class,
             ]);
 
             return $this->generateViaOpenRouter($prompt);
@@ -172,9 +268,15 @@ class RunGeneratePosterNode
 
     private function generateViaOpenRouter(string $prompt): ?string
     {
-        try {
-            $model = (string) config('ai.default_image_model');
+        $model = (string) config('ai.default_image_model');
 
+        Log::info('RunGeneratePosterNode: generating image via OpenRouter fallback', [
+            'model' => $model,
+            'prompt_length' => strlen($prompt),
+            'api_key_set' => config('services.openai.api_key') !== '',
+        ]);
+
+        try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer '.config('services.openai.api_key'),
                 'Content-Type' => 'application/json',
@@ -194,9 +296,15 @@ class RunGeneratePosterNode
                     'n' => 1,
                 ]);
 
+            Log::info('RunGeneratePosterNode: OpenRouter response', [
+                'status' => $response->status(),
+                'successful' => $response->successful(),
+            ]);
+
             if (! $response->successful()) {
                 Log::error('RunGeneratePosterNode: OpenRouter API error', [
                     'status' => $response->status(),
+                    'body' => $response->body(),
                 ]);
 
                 return null;
@@ -204,6 +312,11 @@ class RunGeneratePosterNode
 
             $result = $response->json();
             $base64Image = (string) data_get($result, 'data.0.b64_json', '');
+
+            Log::info('RunGeneratePosterNode: OpenRouter parsed response', [
+                'has_b64' => $base64Image !== '',
+                'b64_length' => strlen($base64Image),
+            ]);
 
             if ($base64Image === '') {
                 return null;
@@ -215,10 +328,18 @@ class RunGeneratePosterNode
 
             $imageBytes = base64_decode($base64Image, true);
 
+            Log::info('RunGeneratePosterNode: OpenRouter decoded image', [
+                'decode_success' => $imageBytes !== false,
+                'bytes_length' => $imageBytes !== false ? strlen($imageBytes) : 0,
+            ]);
+
             return $imageBytes !== false ? $imageBytes : null;
         } catch (Throwable $e) {
             Log::error('RunGeneratePosterNode: OpenRouter fallback failed', [
                 'error' => $e->getMessage(),
+                'exception_class' => $e::class,
+                'exception_file' => $e->getFile(),
+                'exception_line' => $e->getLine(),
             ]);
 
             return null;

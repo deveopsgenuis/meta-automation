@@ -12,6 +12,7 @@ use App\Enums\Automation\Trigger\Type as TriggerType;
 use App\Models\Automation;
 use App\Models\AutomationRun;
 use App\Models\Post;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Walks the workspace's active automations and dispatches a run for each one
@@ -30,16 +31,33 @@ class DispatchPostTriggerAutomations
 
     public function __invoke(Post $post, TriggerType $triggerType): void
     {
+        Log::info('DispatchPostTriggerAutomations: searching for automations', [
+            'post_id' => $post->id,
+            'workspace_id' => $post->workspace_id,
+            'trigger_type' => $triggerType->value,
+        ]);
+
         $automations = Automation::query()
             ->where('workspace_id', $post->workspace_id)
             ->where('status', AutomationStatus::Active)
             ->where('trigger_type', $triggerType->value)
             ->get();
 
+        Log::info('DispatchPostTriggerAutomations: found automations', [
+            'post_id' => $post->id,
+            'count' => $automations->count(),
+            'automation_ids' => $automations->pluck('id')->values()->all(),
+        ]);
+
         foreach ($automations as $automation) {
             $triggerNode = collect($automation->nodes ?? [])->firstWhere('type', NodeType::Trigger->value);
 
             if ($triggerNode === null) {
+                Log::warning('DispatchPostTriggerAutomations: automation has no trigger node', [
+                    'automation_id' => $automation->id,
+                    'node_count' => count($automation->nodes ?? []),
+                ]);
+
                 continue;
             }
 
@@ -63,6 +81,12 @@ class DispatchPostTriggerAutomations
             ],
         ];
 
+        Log::info('DispatchPostTriggerAutomations: dispatching run', [
+            'automation_id' => $automation->id,
+            'trigger_node_id' => $triggerNode['id'],
+            'post_id' => $post->id,
+        ]);
+
         $run = AutomationRun::create([
             'automation_id' => $automation->id,
             'status' => RunStatus::Pending,
@@ -71,7 +95,22 @@ class DispatchPostTriggerAutomations
 
         $targets = $this->advance->targetsFor($automation, $triggerNode['id']);
 
+        Log::info('DispatchPostTriggerAutomations: resolved targets', [
+            'run_id' => $run->id,
+            'automation_id' => $automation->id,
+            'trigger_node_id' => $triggerNode['id'],
+            'target_count' => count($targets),
+            'targets' => $targets,
+        ]);
+
         if ($targets === []) {
+            Log::error('DispatchPostTriggerAutomations: no edges from trigger node', [
+                'run_id' => $run->id,
+                'automation_id' => $automation->id,
+                'trigger_node_id' => $triggerNode['id'],
+                'connections' => $automation->connections ?? [],
+            ]);
+
             $run->update([
                 'status' => RunStatus::Failed,
                 'error' => ['message' => __('automations.errors.no_trigger_connection')],
