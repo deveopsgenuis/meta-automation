@@ -153,6 +153,7 @@ return [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
             'prefix' => env('REDIS_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-database-'),
             'persistent' => env('REDIS_PERSISTENT', false),
+            'read_timeout' => env('REDIS_READ_TIMEOUT', 600),
         ],
 
         'default' => [
@@ -166,6 +167,8 @@ return [
             'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),
             'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
             'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
+            'timeout' => env('REDIS_TIMEOUT', 5),
+            'read_timeout' => env('REDIS_READ_TIMEOUT', 600),
         ],
 
         'cache' => [
@@ -179,6 +182,8 @@ return [
             'backoff_algorithm' => env('REDIS_BACKOFF_ALGORITHM', 'decorrelated_jitter'),
             'backoff_base' => env('REDIS_BACKOFF_BASE', 100),
             'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
+            'timeout' => env('REDIS_TIMEOUT', 5),
+            'read_timeout' => env('REDIS_READ_TIMEOUT', 600),
         ],
 
     ],
