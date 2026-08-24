@@ -93,9 +93,15 @@ class RunGeneratePosterNode
 
                 continue;
             }
+
+            $contentTypeValue = (string) data_get($entry, 'content_type', '');
+            $contentType = $contentTypeValue !== ''
+                ? ContentType::tryFrom($contentTypeValue)
+                : ContentType::InstagramFeed;
+
             $platforms[] = [
                 'social_account_id' => $accountId,
-                'content_type' => ContentType::InstagramFeed->value,
+                'content_type' => ($contentType ?? ContentType::InstagramFeed)->value,
                 'meta' => data_get($entry, 'meta', []),
             ];
         }
