@@ -9,6 +9,7 @@ use App\Jobs\Automation\ProcessAutomationNode;
 use App\Models\Automation;
 use App\Models\AutomationRun;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class AdvanceAutomationRun
 {
@@ -79,6 +80,7 @@ class AdvanceAutomationRun
             'first_target' => $first,
             'sibling_count' => count($targets),
             'sibling_targets' => $targets,
+            'is_manual' => $run->is_manual,
         ]);
 
         foreach ($targets as $target) {
@@ -98,7 +100,7 @@ class AdvanceAutomationRun
                 'target_node_id' => $target,
             ]);
 
-            ProcessAutomationNode::dispatch($sibling, $target);
+            $this->dispatchNode($sibling, $target);
         }
 
         Log::info('AdvanceAutomationRun: dispatching main branch', [
@@ -106,6 +108,45 @@ class AdvanceAutomationRun
             'target_node_id' => $first,
         ]);
 
-        ProcessAutomationNode::dispatch($run, $first);
+        $this->dispatchNode($run, $first);
+    }
+
+    private function dispatchNode(AutomationRun $run, string $nodeId): void
+    {
+        try {
+            if ($run->is_manual) {
+                Log::info('AdvanceAutomationRun: dispatching sync for manual run', [
+                    'run_id' => $run->id,
+                    'node_id' => $nodeId,
+                ]);
+
+                app()->make(ProcessAutomationNode::class, ['run' => $run, 'nodeId' => $nodeId])->handle(
+                    app(AdvanceAutomationRun::class),
+                );
+
+                Log::info('AdvanceAutomationRun: sync dispatch completed', [
+                    'run_id' => $run->id,
+                    'node_id' => $nodeId,
+                ]);
+
+                return;
+            }
+
+            ProcessAutomationNode::dispatch($run, $nodeId);
+
+            Log::info('AdvanceAutomationRun: async dispatch succeeded', [
+                'run_id' => $run->id,
+                'node_id' => $nodeId,
+            ]);
+        } catch (Throwable $e) {
+            Log::error('AdvanceAutomationRun: dispatch failed', [
+                'run_id' => $run->id,
+                'node_id' => $nodeId,
+                'error' => $e->getMessage(),
+                'exception_class' => $e::class,
+            ]);
+
+            throw $e;
+        }
     }
 }
