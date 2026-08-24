@@ -32,11 +32,29 @@ class RunGenerateNode
 
     public function __invoke(AutomationRun $run, array $config): NodeRunResult
     {
+        Log::info('RunGenerateNode: starting', [
+            'run_id' => $run->id,
+            'config' => $config,
+        ]);
+
         $context = $run->resolverContext();
         $prompt = $this->resolver->resolve((string) data_get($config, 'prompt_template', ''), $context);
 
+        Log::info('RunGenerateNode: resolved prompt', [
+            'run_id' => $run->id,
+            'prompt_length' => strlen($prompt),
+            'prompt_preview' => substr($prompt, 0, 300),
+        ]);
+
         $accountsConfig = $this->resolveAccountsConfig($config);
         ['format' => $format, 'slide_count' => $slideCount] = $this->deriveFormat($accountsConfig, $config);
+
+        Log::info('RunGenerateNode: derived format', [
+            'run_id' => $run->id,
+            'format' => $format->value,
+            'slide_count' => $slideCount,
+            'accounts_count' => count($accountsConfig),
+        ]);
 
         $accountIds = array_values(array_filter(array_map(
             fn ($a) => data_get($a, 'social_account_id'),
@@ -52,12 +70,26 @@ class RunGenerateNode
             ->get()
             ->keyBy('id');
 
+        Log::info('RunGenerateNode: resolved accounts', [
+            'run_id' => $run->id,
+            'requested_account_ids' => $accountIds,
+            'active_account_ids' => $activeAccounts->keys()->all(),
+            'workspace_id' => $workspace->id,
+        ]);
+
         $applyBrandVoice = (bool) data_get($config, 'use_brand_voice', true);
 
         $platformContext = $this->resolvePlatformContext($accountsConfig);
 
         $style = ContentStyle::tryFrom((string) data_get($config, 'style', ContentStyle::default()->value)) ?? ContentStyle::default();
         $styleTemplate = app(AiTemplateRegistry::class)->find($style);
+
+        Log::info('RunGenerateNode: style resolved', [
+            'run_id' => $run->id,
+            'style' => $style->value,
+            'has_template' => $styleTemplate !== null,
+            'platform_context' => $platformContext,
+        ]);
 
         $platforms = [];
         foreach ($accountsConfig as $entry) {
@@ -80,6 +112,12 @@ class RunGenerateNode
             ];
         }
 
+        Log::info('RunGenerateNode: resolved platforms', [
+            'run_id' => $run->id,
+            'platform_count' => count($platforms),
+            'platforms' => $platforms,
+        ]);
+
         $wantsImage = (int) data_get($config, 'target_slide_count', 1) >= 1;
 
         $brandAccount = $platforms !== []
@@ -88,6 +126,14 @@ class RunGenerateNode
 
         $isCarousel = $format->isCarousel();
         $imageCount = $isCarousel ? $slideCount : ($wantsImage ? 1 : 0);
+
+        Log::info('RunGenerateNode: building template context', [
+            'run_id' => $run->id,
+            'wants_image' => $wantsImage,
+            'is_carousel' => $isCarousel,
+            'image_count' => $imageCount,
+            'brand_account_id' => $brandAccount?->id,
+        ]);
 
         $templateContext = new TemplateContext(
             workspace: $workspace,
@@ -108,7 +154,22 @@ class RunGenerateNode
             templateContext: $templateContext,
         );
 
+        Log::info('RunGenerateNode: calling AI agent', [
+            'run_id' => $run->id,
+            'provider' => config('ai.default'),
+            'model' => config('ai.default_text_model'),
+        ]);
+
         $generatorResponse = $agent->prompt($prompt);
+
+        Log::info('RunGenerateNode: AI response received', [
+            'run_id' => $run->id,
+            'has_structured' => isset($generatorResponse->structured),
+            'structured_type' => gettype($generatorResponse->structured),
+            'structured_keys' => is_array($generatorResponse->structured) ? array_keys($generatorResponse->structured) : [],
+            'prompt_tokens' => $generatorResponse->usage->promptTokens ?? null,
+            'completion_tokens' => $generatorResponse->usage->completionTokens ?? null,
+        ]);
 
         RecordAiUsage::recordText(
             workspace: $workspace,
@@ -121,12 +182,27 @@ class RunGenerateNode
 
         $structured = $generatorResponse->structured ?? [];
 
+        Log::info('RunGenerateNode: structured output', [
+            'run_id' => $run->id,
+            'structured' => $structured,
+        ]);
+
         $structured = $this->humanize($workspace, $structured, $format, $style, $applyBrandVoice, $platformContext);
+
+        Log::info('RunGenerateNode: after humanize', [
+            'run_id' => $run->id,
+            'structured_keys' => array_keys($structured),
+        ]);
 
         $intendedImageCount = $this->intendedImageCount($format, $slideCount, $wantsImage, $structured, $brandAccount, $style);
 
         if ($run->is_dry_run) {
             $dryContent = $this->extractContent($structured, $format, $style);
+
+            Log::info('RunGenerateNode: dry run result', [
+                'run_id' => $run->id,
+                'dry_content' => $dryContent,
+            ]);
 
             return NodeRunResult::completed(output: [
                 'generated' => [
@@ -140,13 +216,36 @@ class RunGenerateNode
 
         $generated = $styleTemplate->assemble($structured, $templateContext);
 
+        Log::info('RunGenerateNode: assembled output', [
+            'run_id' => $run->id,
+            'generated_content' => $generated->content,
+            'generated_content_length' => strlen($generated->content),
+            'media_count' => count($generated->media),
+        ]);
+
         $user = $this->resolveUser($run);
+
+        Log::info('RunGenerateNode: creating post', [
+            'run_id' => $run->id,
+            'user_id' => $user->id,
+            'workspace_id' => $workspace->id,
+            'platform_count' => count($platforms),
+            'content_preview' => substr($generated->content, 0, 200),
+        ]);
 
         $post = CreatePost::execute($workspace, $user, [
             'content' => $generated->content,
             'media' => $generated->media,
             'platforms' => $platforms,
             'created_via' => CreatedVia::Automation,
+        ]);
+
+        Log::info('RunGenerateNode: post created', [
+            'run_id' => $run->id,
+            'post_id' => $post->id,
+            'post_content' => $post->content,
+            'post_content_length' => strlen($post->content),
+            'post_status' => $post->status->value,
         ]);
 
         $run->update(['generated_post_id' => $post->id]);
@@ -167,6 +266,10 @@ class RunGenerateNode
     private function humanize(Workspace $workspace, array $structured, GeneratorFormat $format, ContentStyle $style, bool $applyBrandVoice = true, ?string $platformContext = null): array
     {
         if (! $style->humanizes()) {
+            Log::info('RunGenerateNode: humanize skipped — style does not humanize', [
+                'style' => $style->value,
+            ]);
+
             return $structured;
         }
 
@@ -188,9 +291,20 @@ class RunGenerateNode
                     'image_body' => data_get($structured, 'image_body', ''),
                 ];
 
+            Log::info('RunGenerateNode: humanizing content', [
+                'format' => $format->value,
+                'input' => $input,
+            ]);
+
             $humanizer = new PostContentHumanizer($workspace, $format, platformContext: $platformContext, applyBrandVoice: $applyBrandVoice);
             $response = $humanizer->prompt(json_encode($input, JSON_UNESCAPED_UNICODE));
             $humanized = $response->structured ?? [];
+
+            Log::info('RunGenerateNode: humanizer response', [
+                'humanized' => $humanized,
+                'prompt_tokens' => $response->usage->promptTokens ?? null,
+                'completion_tokens' => $response->usage->completionTokens ?? null,
+            ]);
 
             RecordAiUsage::recordText(
                 workspace: $workspace,
@@ -219,9 +333,15 @@ class RunGenerateNode
                 $structured['image_title'] = data_get($humanized, 'image_title', $structured['image_title'] ?? '');
                 $structured['image_body'] = data_get($humanized, 'image_body', $structured['image_body'] ?? '');
             }
+
+            Log::info('RunGenerateNode: after humanize merge', [
+                'final_content' => data_get($structured, 'content', ''),
+                'final_image_title' => data_get($structured, 'image_title', ''),
+            ]);
         } catch (Throwable $e) {
             Log::warning('RunGenerateNode: PostContentHumanizer failed, using generator output as-is', [
                 'error' => $e->getMessage(),
+                'exception_class' => $e::class,
             ]);
         }
 
@@ -238,14 +358,32 @@ class RunGenerateNode
     private function extractContent(array $structured, GeneratorFormat $format, ContentStyle $style): string
     {
         if ($style->isTweetCard()) {
-            return $format->isCarousel()
+            $content = $format->isCarousel()
                 ? (string) data_get($structured, 'caption', '')
                 : (string) data_get($structured, 'tweet_text', '');
+
+            Log::info('RunGenerateNode: extractContent (tweet card)', [
+                'style' => $style->value,
+                'format' => $format->value,
+                'content' => $content,
+                'structured_keys' => array_keys($structured),
+            ]);
+
+            return $content;
         }
 
-        return $format->isCarousel()
+        $content = $format->isCarousel()
             ? (string) data_get($structured, 'caption', '')
             : (string) data_get($structured, 'content', '');
+
+        Log::info('RunGenerateNode: extractContent', [
+            'style' => $style->value,
+            'format' => $format->value,
+            'content' => $content,
+            'structured_keys' => array_keys($structured),
+        ]);
+
+        return $content;
     }
 
     /**
