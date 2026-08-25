@@ -159,4 +159,11 @@ return [
         'no_youtube_channels' => 'No YouTube channels found. Please create a channel first.',
         'not_linkedin_admin' => 'You are not an administrator of any LinkedIn page.',
     ],
+
+    'platform_credentials_title' => 'API Credentials',
+    'platform_credentials_description' => 'Configure your own API credentials for each platform.',
+    'edit_credentials' => 'Edit',
+    'leave_empty_to_keep' => 'leave empty to keep current',
+    'credentials_deleted' => 'Credentials deleted successfully.',
+    'credentials_configured' => 'Configured',
 ];

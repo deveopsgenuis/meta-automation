@@ -159,4 +159,11 @@ return [
         'no_youtube_channels' => 'لم يتم العثور على قنوات YouTube. يرجى إنشاء قناة أولًا.',
         'not_linkedin_admin' => 'أنت لست مشرفًا على أي صفحة LinkedIn.',
     ],
+
+    'platform_credentials_title' => 'بيانات اعتماد API',
+    'platform_credentials_description' => 'قم بتكوين بيانات اعتماد API الخاصة بك لكل منصة.',
+    'edit_credentials' => 'تعديل',
+    'leave_empty_to_keep' => 'اتركه فارغًا للحفاظ على الحالي',
+    'credentials_deleted' => 'تم حذف بيانات الاعتماد بنجاح.',
+    'credentials_configured' => 'تم التكوين',
 ];
