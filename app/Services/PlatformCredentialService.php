@@ -7,7 +7,6 @@ namespace App\Services;
 use App\Enums\SocialAccount\Platform;
 use App\Models\PlatformCredential;
 use App\Models\Workspace;
-use Illuminate\Support\Facades\Cache;
 
 class PlatformCredentialService
 {
@@ -17,17 +16,15 @@ class PlatformCredentialService
      */
     public function loadForWorkspace(Workspace $workspace): void
     {
-        $credentials = Cache::remember(
-            "platform_credentials:{$workspace->id}",
-            300,
-            fn () => PlatformCredential::query()
-                ->where('workspace_id', $workspace->id)
-                ->get()
-                ->keyBy('platform')
-        );
+        $credentials = PlatformCredential::query()
+            ->where('workspace_id', $workspace->id)
+            ->get()
+            ->keyBy('platform');
 
         foreach ($credentials as $platform => $credential) {
-            $this->applyCredential($platform, $credential);
+            if ($credential instanceof PlatformCredential) {
+                $this->applyCredential($platform, $credential);
+            }
         }
     }
 
