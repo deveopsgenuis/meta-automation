@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { IconAlertTriangle, IconCheck, IconPlus } from '@tabler/icons-vue';
+import { IconAlertTriangle, IconCheck, IconKey, IconPlus } from '@tabler/icons-vue';
 import { trans } from 'laravel-vue-i18n';
 import { computed, ref } from 'vue';
 import { toast } from 'vue-sonner';
 
 import TelegramConnectDialog from '@/components/accounts/TelegramConnectDialog.vue';
 import ConfirmDeleteModal from '@/components/ConfirmDeleteModal.vue';
+import PlatformCredentialsModal from '@/components/accounts/PlatformCredentialsModal.vue';
 import { Button } from '@/components/ui/button';
 import { useOAuthPopup } from '@/composables/useOAuthPopup';
 import { disconnect } from '@/routes/app/accounts';
@@ -29,14 +30,21 @@ export interface ConnectedAccount {
     status: 'connected' | 'disconnected' | 'token_expired' | null;
 }
 
+export interface PlatformCredentialInfo {
+    platform: string;
+    has_credentials: boolean;
+}
+
 const props = withDefaults(
     defineProps<{
         platforms: AvailablePlatform[];
         connectedAccounts?: ConnectedAccount[];
+        platformCredentials?: Record<string, PlatformCredentialInfo>;
         gridClass?: string;
     }>(),
     {
         connectedAccounts: () => [],
+        platformCredentials: () => ({}),
         gridClass: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
     },
 );
@@ -150,9 +158,21 @@ const cardConnection = computed(
 );
 
 const telegramOpen = ref(false);
+const credentialsModalOpen = ref(false);
+const selectedPlatformForCredentials = ref('');
 const disconnectModal = ref<InstanceType<typeof ConfirmDeleteModal> | null>(
     null,
 );
+
+const hasCredentials = (platformValue: string): boolean => {
+    const cred = props.platformCredentials[platformValue];
+    return cred?.has_credentials ?? false;
+};
+
+const openCredentialsModal = (platformValue: string) => {
+    selectedPlatformForCredentials.value = platformValue;
+    credentialsModalOpen.value = true;
+};
 
 const { openOAuthPopup } = useOAuthPopup((result) => {
     if (result.success) {
@@ -188,6 +208,11 @@ const openConnect = (platformValue: string) => {
 
 const connectPlatform = (platformValue: string) => {
     if (cardConnection.value[platformValue]) {
+        return;
+    }
+
+    if (!hasCredentials(platformValue)) {
+        openCredentialsModal(platformValue);
         return;
     }
 
@@ -323,18 +348,35 @@ const cardState = computed((): Record<string, CardStateValue> => {
                 >
                     {{ $t('accounts.disconnect') }}
                 </Button>
-                <Button
-                    v-else
-                    size="sm"
-                    class="mt-auto w-full"
-                    @click="connectPlatform(platform.value)"
-                >
-                    {{ $t('accounts.connect_cta') }}
-                </Button>
+                <div v-else class="mt-auto flex w-full flex-col gap-1">
+                    <Button
+                        v-if="!hasCredentials(platform.value)"
+                        variant="outline"
+                        size="sm"
+                        class="w-full"
+                        @click="openCredentialsModal(platform.value)"
+                    >
+                        <IconKey class="mr-1 size-3" />
+                        {{ $t('accounts.add_credentials') }}
+                    </Button>
+                    <Button
+                        size="sm"
+                        class="w-full"
+                        @click="connectPlatform(platform.value)"
+                    >
+                        {{ hasCredentials(platform.value) ? $t('accounts.connect_cta') : $t('accounts.connect_with_credentials') }}
+                    </Button>
+                </div>
             </div>
         </div>
 
         <TelegramConnectDialog v-model:open="telegramOpen" />
+
+        <PlatformCredentialsModal
+            v-model:open="credentialsModalOpen"
+            :platform="selectedPlatformForCredentials"
+            @saved="() => router.reload()"
+        />
 
         <ConfirmDeleteModal
             ref="disconnectModal"

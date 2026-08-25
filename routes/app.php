@@ -14,6 +14,7 @@ use App\Http\Controllers\App\GiphyController;
 use App\Http\Controllers\App\LinkPreviewController;
 use App\Http\Controllers\App\NotificationController;
 use App\Http\Controllers\App\OnboardingController;
+use App\Http\Controllers\App\PlatformCredentialController;
 use App\Http\Controllers\App\PostAiCreateController;
 use App\Http\Controllers\App\PostAiGenerateController;
 use App\Http\Controllers\App\PostAiRegenerateMediaController;
@@ -108,6 +109,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('connect/discord', [DiscordController::class, 'connect'])->name('app.social.discord.connect');
 
         Route::delete('accounts/{account}', [SocialController::class, 'disconnect'])->name('app.accounts.disconnect');
+
+        Route::get('platform-credentials', [PlatformCredentialController::class, 'index'])->name('app.platform-credentials.index');
+        Route::post('platform-credentials', [PlatformCredentialController::class, 'store'])->name('app.platform-credentials.store');
+        Route::delete('platform-credentials/{credential}', [PlatformCredentialController::class, 'destroy'])->name('app.platform-credentials.destroy');
+        Route::post('platform-credentials/{credential}/test', [PlatformCredentialController::class, 'test'])->name('app.platform-credentials.test');
     });
 
     // OAuth callbacks and identity selection resolve their workspace from the

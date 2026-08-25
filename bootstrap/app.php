@@ -6,6 +6,7 @@ use App\Http\Middleware\Api\LoadWorkspaceFromToken;
 use App\Http\Middleware\App\EnsureRegistrationEnabled;
 use App\Http\Middleware\App\HandleInertiaRequests;
 use App\Http\Middleware\App\SetLocale;
+use App\Http\Middleware\LoadPlatformCredentials;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -31,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             SetLocale::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            LoadPlatformCredentials::class,
         ]);
 
         $middleware->alias([

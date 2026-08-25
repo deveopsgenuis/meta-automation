@@ -11,6 +11,7 @@ use App\Enums\SocialAccount\Status;
 use App\Exceptions\SocialAccount\NetworkAlreadyConnectedException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\App\SocialAccountResource;
+use App\Models\PlatformCredential;
 use App\Models\SocialAccount;
 use App\Models\Workspace;
 use Illuminate\Http\RedirectResponse;
@@ -47,12 +48,22 @@ class SocialController extends Controller
                 'network' => $platform->network(),
             ])->values();
 
+        $credentials = PlatformCredential::query()
+            ->where('workspace_id', $workspace->id)
+            ->get()
+            ->map(fn (PlatformCredential $c) => [
+                'platform' => $c->platform,
+                'has_credentials' => true,
+            ])
+            ->keyBy('platform');
+
         return Inertia::render('accounts/Index', [
             'workspace' => $workspace,
             'platforms' => $platforms,
             'connectedAccounts' => SocialAccountResource::collection(
                 $workspace->socialAccounts()->orderBy('id')->get(),
             )->resolve(),
+            'platformCredentials' => $credentials,
         ]);
     }
 
