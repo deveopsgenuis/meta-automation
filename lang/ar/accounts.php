@@ -166,4 +166,5 @@ return [
     'leave_empty_to_keep' => 'اتركه فارغًا للحفاظ على الحالي',
     'credentials_deleted' => 'تم حذف بيانات الاعتماد بنجاح.',
     'credentials_configured' => 'تم التكوين',
+    'credentials_not_found' => 'لم يتم العثور على بيانات اعتماد لهذه المنصة.',
 ];

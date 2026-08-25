@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/vue3';
 import NetworkConnectGrid, {
     type AvailablePlatform,
     type ConnectedAccount,
+    type PlatformCredentialInfo,
 } from '@/components/accounts/NetworkConnectGrid.vue';
 import PageHeader from '@/components/PageHeader.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -11,6 +12,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 defineProps<{
     platforms: AvailablePlatform[];
     connectedAccounts: ConnectedAccount[];
+    platformCredentials: Record<string, PlatformCredentialInfo>;
 }>();
 </script>
 
@@ -27,6 +29,7 @@ defineProps<{
             <NetworkConnectGrid
                 :platforms="platforms"
                 :connected-accounts="connectedAccounts"
+                :platform-credentials="platformCredentials"
             />
         </div>
     </AppLayout>

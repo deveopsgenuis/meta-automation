@@ -166,4 +166,5 @@ return [
     'leave_empty_to_keep' => 'laisser vide pour conserver le current',
     'credentials_deleted' => 'Identifiants supprimés avec succès.',
     'credentials_configured' => 'Configuré',
+    'credentials_not_found' => 'Aucun identifiant trouvé pour cette plateforme.',
 ];

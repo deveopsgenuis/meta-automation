@@ -166,4 +166,5 @@ return [
     'leave_empty_to_keep' => 'leave empty to keep current',
     'credentials_deleted' => 'Credentials deleted successfully.',
     'credentials_configured' => 'Configured',
+    'credentials_not_found' => 'No credentials found for this platform.',
 ];

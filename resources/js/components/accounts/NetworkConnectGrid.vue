@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { IconAlertTriangle, IconCheck, IconKey, IconPlus } from '@tabler/icons-vue';
+import { IconAlertTriangle, IconCheck, IconKey, IconLoader2, IconPlus, IconRocket } from '@tabler/icons-vue';
 import { trans } from 'laravel-vue-i18n';
 import { computed, ref } from 'vue';
 import { toast } from 'vue-sonner';
@@ -223,6 +223,45 @@ const reconnectAccount = (account: ConnectedAccount) => {
     openConnect(connectEntryFor(account.platform));
 };
 
+const testingPlatform = ref<string | null>(null);
+
+const testCredentials = async (platformValue: string) => {
+    testingPlatform.value = platformValue;
+    try {
+        const response = await fetch('/platform-credentials', {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        const data = await response.json();
+        const cred = data.find((c: any) => c.platform === platformValue);
+        if (!cred) {
+            toast.error(trans('accounts.credentials_not_found'));
+            return;
+        }
+        const testResponse = await fetch(`/platform-credentials/${cred.id}/test`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Accept': 'application/json',
+            },
+        });
+        const result = await testResponse.json();
+        if (result.success) {
+            toast.success(result.message);
+        } else {
+            toast.error(result.message);
+        }
+    } catch (error) {
+        toast.error(trans('accounts.credentials_error'));
+    } finally {
+        testingPlatform.value = null;
+    }
+};
+
 const CardState = {
     Connect: 'connect',
     Connected: 'connected',
@@ -348,9 +387,24 @@ const cardState = computed((): Record<string, CardStateValue> => {
                 >
                     {{ $t('accounts.disconnect') }}
                 </Button>
+                <div v-else-if="hasCredentials(platform.value)" class="mt-auto flex w-full flex-col gap-1">
+                    <div class="flex gap-1">
+                        <Button variant="outline" size="sm" class="flex-1" @click="openCredentialsModal(platform.value)">
+                            <IconKey class="mr-1 size-3" />
+                            {{ $t('accounts.edit_credentials') }}
+                        </Button>
+                        <Button variant="outline" size="sm" :disabled="testingPlatform === platform.value" @click="testCredentials(platform.value)">
+                            <IconLoader2 v-if="testingPlatform === platform.value" class="mr-1 size-3 animate-spin" />
+                            <IconRocket v-else class="mr-1 size-3" />
+                            {{ $t('accounts.test_credentials') }}
+                        </Button>
+                    </div>
+                    <Button size="sm" class="w-full" @click="connectPlatform(platform.value)">
+                        {{ $t('accounts.connect_cta') }}
+                    </Button>
+                </div>
                 <div v-else class="mt-auto flex w-full flex-col gap-1">
                     <Button
-                        v-if="!hasCredentials(platform.value)"
                         variant="outline"
                         size="sm"
                         class="w-full"
@@ -364,7 +418,7 @@ const cardState = computed((): Record<string, CardStateValue> => {
                         class="w-full"
                         @click="connectPlatform(platform.value)"
                     >
-                        {{ hasCredentials(platform.value) ? $t('accounts.connect_cta') : $t('accounts.connect_with_credentials') }}
+                        {{ $t('accounts.connect_cta') }}
                     </Button>
                 </div>
             </div>
