@@ -14,6 +14,17 @@ Tone & Voice: {{ $brand_voice_traits }}
 @if($instruction)
 Extra Instructions: {{ $instruction }}
 @endif
+@if($has_start_frame || $has_end_frame)
+
+FRAME IMAGES — A reference image will be provided to the video model for frame guidance:
+@if($has_start_frame)
+- START FRAME: The video must begin with visual elements matching this image (style, colors, subject, composition). Your prompt should describe the opening scene as a natural continuation of this frame.
+@endif
+@if($has_end_frame)
+- END FRAME: The video must end with visual elements matching this image (style, colors, subject, composition). Your prompt should describe a smooth visual transition toward this final frame.
+@endif
+Your video_prompt MUST explicitly describe how the video flows from the start frame visual to the end frame visual. Describe specific visual details (objects, colors, lighting, camera movement) that bridge the two frames naturally. Do NOT ignore the frame images — the video model uses them as anchors.
+@endif
 @if(count($existing_scheduled_posts) > 0)
 
 EXISTING SCHEDULED POSTS — Avoid these dates/times. Do NOT create posts that conflict with or duplicate these:

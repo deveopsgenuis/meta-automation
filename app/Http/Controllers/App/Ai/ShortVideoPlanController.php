@@ -42,6 +42,8 @@ class ShortVideoPlanController extends Controller
         $instruction = (string) $request->input('instruction', '');
         $size = (string) $request->input('size', '9:16');
         $quality = (string) $request->input('quality', '720p');
+        $startFrameImage = $request->input('start_frame_image');
+        $endFrameImage = $request->input('end_frame_image');
 
         $channelPlatform = null;
         if ($socialAccountId) {
@@ -75,6 +77,8 @@ class ShortVideoPlanController extends Controller
             size: $size,
             quality: $quality,
             existingScheduledPosts: $existingScheduledPosts,
+            hasStartFrame: $startFrameImage !== null && is_array($startFrameImage),
+            hasEndFrame: $endFrameImage !== null && is_array($endFrameImage),
             provider: $request->input('provider'),
         );
 

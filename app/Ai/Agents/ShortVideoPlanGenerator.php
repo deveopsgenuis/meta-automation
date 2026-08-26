@@ -31,6 +31,8 @@ class ShortVideoPlanGenerator implements Agent, HasStructuredOutput
         public string $size = '9:16',
         public string $quality = '720p',
         public array $existingScheduledPosts = [],
+        public bool $hasStartFrame = false,
+        public bool $hasEndFrame = false,
         public ?string $provider = null,
         public ?string $model = null,
     ) {}
@@ -48,6 +50,8 @@ class ShortVideoPlanGenerator implements Agent, HasStructuredOutput
             'size' => $this->size,
             'quality' => $this->quality,
             'existing_scheduled_posts' => $this->existingScheduledPosts,
+            'has_start_frame' => $this->hasStartFrame,
+            'has_end_frame' => $this->hasEndFrame,
         ])->render();
     }
 

@@ -228,6 +228,8 @@ const generatePlan = async () => {
                 instruction: instruction.value,
                 size: selectedSize.value,
                 quality: selectedQuality.value,
+                start_frame_image: startFrameImage.value ? { path: startFrameImage.value.path } : null,
+                end_frame_image: endFrameImage.value ? { path: endFrameImage.value.path } : null,
             }),
         });
 

@@ -22,6 +22,10 @@ class GenerateShortVideoPlanRequest extends FormRequest
             'instruction' => ['nullable', 'string', 'max:1000'],
             'size' => ['nullable', 'string', 'in:1:1,9:16,16:9'],
             'quality' => ['nullable', 'string', 'in:720p,1080p'],
+            'start_frame_image' => ['nullable', 'array'],
+            'start_frame_image.path' => ['required_with:start_frame_image', 'string'],
+            'end_frame_image' => ['nullable', 'array'],
+            'end_frame_image.path' => ['required_with:end_frame_image', 'string'],
             'provider' => ['nullable', 'string'],
         ];
     }
