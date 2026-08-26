@@ -13,6 +13,7 @@ use App\Models\AutomationRun;
 use App\Models\Media;
 use App\Models\SocialAccount;
 use App\Models\User;
+use App\Models\Workspace;
 use App\Services\Ai\RecordAiUsage;
 use App\Services\Automation\ExpressionResolver;
 use Illuminate\Support\Facades\Http;
