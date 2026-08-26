@@ -312,6 +312,7 @@ return [
             'use_brand_visuals' => 'Utiliser les visuels de la marque',
             'use_brand_visuals_hint' => 'Orientez les images de l\'IA avec les couleurs et l\'identité de votre marque.',
             'account_summary' => ':count compte|:count comptes',
+            'ref_summary' => ':count réf|:count réfs',
             'reference_images' => 'Images de référence',
             'reference_images_hint' => 'Ajoutez des logos, produits ou éléments de marque à inclure dans le design de l\'affiche.',
             'poster_count_hint' => 'Nombre de variations d\'affiches à générer.',

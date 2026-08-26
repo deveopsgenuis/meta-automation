@@ -185,11 +185,14 @@ const openReferenceImagePicker = (index: number) => {
     referenceImagePicker.value?.open();
 };
 
-const handleReferenceImageSelect = (media: any) => {
+const handleReferenceImageSelect = (media: Array<{ path: string; url: string }>) => {
+    if (media.length === 0) return;
+
+    const picked = media[0];
     const idx = activePickerIndex.value;
     const newImage: ReferenceImage = {
-        path: media.path,
-        url: media.url || `/storage/${media.path}`,
+        path: picked.path,
+        url: picked.url || `/storage/${picked.path}`,
     };
 
     if (idx >= 0 && idx < referenceImages.value.length) {
@@ -198,7 +201,7 @@ const handleReferenceImageSelect = (media: any) => {
         referenceImages.value.push(newImage);
     }
 
-    local.value.reference_images = referenceImages.value.map((img) => img.path);
+    local.value.reference_images = referenceImages.value.filter((img) => img.path).map((img) => img.path);
 };
 
 const removeReferenceImage = (index: number) => {

@@ -11,6 +11,7 @@ const props = defineProps<{
         poster_size?: string;
         poster_count?: number;
         template?: string;
+        reference_images?: string[];
     };
     selected?: boolean;
 }>();
@@ -20,12 +21,19 @@ const summary = computed(() => {
     const size = trans(`automations.config.generate_poster.sizes.${props.data.poster_size ?? '1080*1080'}`);
     const posterCount = props.data.poster_count ?? 1;
     const template = trans(`automations.config.generate_poster.templates.${posterCount > 1 ? 'carousel' : 'single'}`);
-    return transChoice('automations.config.generate_poster.account_summary', count, {
-        count: String(count),
-        size,
-        template,
-        posterCount: String(posterCount),
-    });
+    const refCount = props.data.reference_images?.filter((r) => r)?.length ?? 0;
+    const parts = [
+        transChoice('automations.config.generate_poster.account_summary', count, {
+            count: String(count),
+            size,
+            template,
+            posterCount: String(posterCount),
+        }),
+    ];
+    if (refCount > 0) {
+        parts.push(transChoice('automations.config.generate_poster.ref_summary', refCount, { count: String(refCount) }));
+    }
+    return parts.join(' · ');
 });
 </script>
 

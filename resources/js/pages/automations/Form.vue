@@ -281,7 +281,7 @@ const defaultConfigFor = (type: string): Record<string, unknown> => {
             schedule_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         };
         case NodeType.Generate: return { accounts: [], prompt_template: '', target_slide_count: 1 };
-        case NodeType.GeneratePoster: return { accounts: [], poster_size: '1080*1080', poster_count: 1, template: 'single', prompt_template: '', use_brand_voice: true, use_brand_visuals: true };
+        case NodeType.GeneratePoster: return { accounts: [], poster_size: '1080*1080', poster_count: 1, template: 'single', prompt_template: '', use_brand_voice: true, use_brand_visuals: true, reference_images: [] };
         case NodeType.Delay: return { duration: 1, unit: DelayUnit.Hours };
         case NodeType.Condition: return { field: '', operator: ConditionOperator.Contains, value: '' };
         case NodeType.Publish: return { mode: PublishMode.Now, scheduled_offset: 60 };
