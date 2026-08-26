@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
-import { IconPhoto, IconPlus, IconX } from '@tabler/icons-vue';
+import { IconPhoto, IconPlus, IconX, IconZoomIn } from '@tabler/icons-vue';
 import { trans } from 'laravel-vue-i18n';
 import { computed, ref, watch } from 'vue';
 
 import ChannelConfigurator from '@/components/ChannelConfigurator.vue';
 import CodeEditor from '@/components/CodeEditor.vue';
+import ImagePreviewDialog from '@/components/ImagePreviewDialog.vue';
 import InputError from '@/components/InputError.vue';
 import MediaPickerDialog from '@/components/posts/MediaPickerDialog.vue';
 import { Button } from '@/components/ui/button';
@@ -145,6 +146,7 @@ const local = ref<GeneratePosterConfig>({
 
 const referenceImages = ref<ReferenceImage[]>(normalizeReferenceImagesFromData());
 const referenceImagePicker = ref<InstanceType<typeof MediaPickerDialog>>();
+const imagePreview = ref<InstanceType<typeof ImagePreviewDialog>>();
 const activePickerIndex = ref<number>(-1);
 
 watch(local, (val) => emit('update', val), { deep: true });
@@ -202,6 +204,13 @@ const handleReferenceImageSelect = (media: any) => {
 const removeReferenceImage = (index: number) => {
     referenceImages.value.splice(index, 1);
     local.value.reference_images = referenceImages.value.map((img) => img.path);
+};
+
+const previewReferenceImage = (index: number) => {
+    const image = referenceImages.value[index];
+    if (image?.url) {
+        imagePreview.value?.open(image.url);
+    }
 };
 
 const setReferenceImageCount = (count: number) => {
@@ -338,31 +347,48 @@ const currentTemplateLabel = computed(() =>
                     </span>
                     <div
                         v-if="referenceImages[index]?.path"
-                        class="group relative size-28 overflow-hidden rounded-lg border-2 border-foreground/10"
+                        class="group relative size-32 overflow-hidden rounded-xl border-2 border-foreground/10 bg-muted/30 transition-all hover:border-primary/50 hover:shadow-md"
                     >
                         <img
                             :src="referenceImages[index].url"
                             :alt="`Reference image ${index + 1}`"
-                            class="size-full object-cover"
+                            class="size-full cursor-pointer object-cover transition-transform group-hover:scale-105"
+                            @click="previewReferenceImage(index)"
                         />
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/20">
+                            <button
+                                type="button"
+                                class="flex size-8 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-all group-hover:opacity-100 hover:bg-black/80"
+                                @click.stop="previewReferenceImage(index)"
+                            >
+                                <IconZoomIn class="size-4" />
+                            </button>
+                        </div>
                         <button
                             type="button"
-                            class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                            @click="removeReferenceImage(index)"
+                            class="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
+                            @click.stop="removeReferenceImage(index)"
                         >
-                            <IconX class="size-3" />
+                            <IconX class="size-3.5" />
                         </button>
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1">
+                            <p class="truncate text-[10px] font-medium text-white">
+                                {{ referenceImages[index].url.split('/').pop() || 'Image' }}
+                            </p>
+                        </div>
                     </div>
                     <div
                         v-else
-                        class="flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-foreground/20 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+                        class="flex size-32 flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-foreground/20 bg-muted/30 p-3 transition-colors hover:border-primary/40 hover:bg-muted/50"
                     >
                         <button
                             type="button"
-                            class="flex flex-col items-center gap-1"
+                            class="flex flex-col items-center gap-1.5"
                             @click="openReferenceImagePicker(index)"
                         >
-                            <IconPhoto class="size-5 text-foreground/40" />
+                            <div class="flex size-10 items-center justify-center rounded-full bg-primary/10">
+                                <IconPhoto class="size-5 text-primary" />
+                            </div>
                             <span class="text-[10px] font-medium text-foreground/60">Select image</span>
                         </button>
                     </div>
@@ -427,5 +453,8 @@ const currentTemplateLabel = computed(() =>
 
         <!-- Hidden MediaPicker -->
         <MediaPickerDialog ref="referenceImagePicker" @select="handleReferenceImageSelect" />
+
+        <!-- Image Preview Dialog -->
+        <ImagePreviewDialog ref="imagePreview" />
     </div>
 </template>
