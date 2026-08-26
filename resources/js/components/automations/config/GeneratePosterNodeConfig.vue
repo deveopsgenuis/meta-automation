@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
+import { IconPhoto, IconPlus, IconX } from '@tabler/icons-vue';
 import { trans } from 'laravel-vue-i18n';
 import { computed, ref, watch } from 'vue';
 
 import ChannelConfigurator from '@/components/ChannelConfigurator.vue';
 import CodeEditor from '@/components/CodeEditor.vue';
 import InputError from '@/components/InputError.vue';
+import MediaPickerDialog from '@/components/posts/MediaPickerDialog.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -26,6 +28,11 @@ interface PosterAccount {
     meta: Record<string, any>;
 }
 
+interface ReferenceImage {
+    path: string;
+    url: string;
+}
+
 interface GeneratePosterConfig {
     accounts: PosterAccount[];
     poster_size: string;
@@ -34,6 +41,7 @@ interface GeneratePosterConfig {
     prompt_template: string;
     use_brand_voice: boolean;
     use_brand_visuals: boolean;
+    reference_images: string[];
 }
 
 const POSTER_SIZES = [
@@ -43,6 +51,8 @@ const POSTER_SIZES = [
 ] as const;
 
 const POSTER_COUNTS = [1, 2, 3, 4, 5, 6] as const;
+
+const REFERENCE_IMAGE_COUNTS = [1, 2, 4] as const;
 
 const props = defineProps<{
     data: Record<string, unknown>;
@@ -111,6 +121,17 @@ const normalizeAccountsFromData = (): PosterAccount[] => {
     return [];
 };
 
+const normalizeReferenceImagesFromData = (): ReferenceImage[] => {
+    const incoming = props.data.reference_images;
+    if (!Array.isArray(incoming)) return [];
+    return (incoming as any[]).map((img) => {
+        if (typeof img === 'string') {
+            return { path: img, url: img.startsWith('data:') ? img : `/storage/${img}` };
+        }
+        return { path: img.path ?? '', url: img.url ?? '' };
+    }).filter((img) => img.path);
+};
+
 const local = ref<GeneratePosterConfig>({
     accounts: normalizeAccountsFromData(),
     poster_size: (props.data.poster_size as string) ?? '1080*1080',
@@ -119,11 +140,18 @@ const local = ref<GeneratePosterConfig>({
     prompt_template: (props.data.prompt_template as string) ?? '',
     use_brand_voice: (props.data.use_brand_voice as boolean) ?? true,
     use_brand_visuals: (props.data.use_brand_visuals as boolean) ?? true,
+    reference_images: (props.data.reference_images as string[]) ?? [],
 });
+
+const referenceImages = ref<ReferenceImage[]>(normalizeReferenceImagesFromData());
+const referenceImagePicker = ref<InstanceType<typeof MediaPickerDialog>>();
+const activePickerIndex = ref<number>(-1);
 
 watch(local, (val) => emit('update', val), { deep: true });
 
 const selectedAccountIds = computed(() => local.value.accounts.map((a) => a.social_account_id));
+
+const referenceImageCount = computed(() => referenceImages.value.length);
 
 const onToggleAccount = (accountId: string) => {
     const account = accountById(accountId);
@@ -150,6 +178,42 @@ const updateMeta = (accountId: string, value: Record<string, any>) => {
     local.value.accounts[idx] = { ...local.value.accounts[idx], meta: value };
 };
 
+const openReferenceImagePicker = (index: number) => {
+    activePickerIndex.value = index;
+    referenceImagePicker.value?.open();
+};
+
+const handleReferenceImageSelect = (media: any) => {
+    const idx = activePickerIndex.value;
+    const newImage: ReferenceImage = {
+        path: media.path,
+        url: media.url || `/storage/${media.path}`,
+    };
+
+    if (idx >= 0 && idx < referenceImages.value.length) {
+        referenceImages.value[idx] = newImage;
+    } else {
+        referenceImages.value.push(newImage);
+    }
+
+    local.value.reference_images = referenceImages.value.map((img) => img.path);
+};
+
+const removeReferenceImage = (index: number) => {
+    referenceImages.value.splice(index, 1);
+    local.value.reference_images = referenceImages.value.map((img) => img.path);
+};
+
+const setReferenceImageCount = (count: number) => {
+    while (referenceImages.value.length < count) {
+        referenceImages.value.push({ path: '', url: '' });
+    }
+    if (referenceImages.value.length > count) {
+        referenceImages.value = referenceImages.value.slice(0, count);
+    }
+    local.value.reference_images = referenceImages.value.filter((img) => img.path).map((img) => img.path);
+};
+
 const channels = computed<Channel[]>(() =>
     socialAccounts.value.map((account) => {
         const entry = local.value.accounts.find((a) => a.social_account_id === account.id);
@@ -166,7 +230,6 @@ const channels = computed<Channel[]>(() =>
     }),
 );
 
-// Auto-switch template based on poster count
 watch(() => local.value.poster_count, (count) => {
     local.value.template = count > 1 ? 'carousel' : 'single';
 });
@@ -236,6 +299,77 @@ const currentTemplateLabel = computed(() =>
             </div>
         </div>
 
+        <!-- Reference Images -->
+        <div class="space-y-2">
+            <Label class="text-sm font-bold">{{ $t('automations.config.generate_poster.reference_images') }}</Label>
+            <p class="text-xs text-foreground/60">{{ $t('automations.config.generate_poster.reference_images_hint') }}</p>
+
+            <div class="flex gap-2">
+                <Button
+                    v-for="n in REFERENCE_IMAGE_COUNTS"
+                    :key="n"
+                    type="button"
+                    size="sm"
+                    :variant="referenceImageCount === n ? 'default' : 'outline'"
+                    @click="setReferenceImageCount(n)"
+                >
+                    {{ n }} {{ n === 1 ? 'image' : 'images' }}
+                </Button>
+                <Button
+                    v-if="referenceImageCount > 0"
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    @click="setReferenceImageCount(0)"
+                >
+                    <IconX class="mr-1 size-3" />
+                    Clear
+                </Button>
+            </div>
+
+            <div v-if="referenceImageCount > 0" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div
+                    v-for="(_, index) in referenceImageCount"
+                    :key="index"
+                    class="space-y-1"
+                >
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-foreground/60">
+                        Ref {{ index + 1 }}
+                    </span>
+                    <div
+                        v-if="referenceImages[index]?.path"
+                        class="group relative size-28 overflow-hidden rounded-lg border-2 border-foreground/10"
+                    >
+                        <img
+                            :src="referenceImages[index].url"
+                            :alt="`Reference image ${index + 1}`"
+                            class="size-full object-cover"
+                        />
+                        <button
+                            type="button"
+                            class="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                            @click="removeReferenceImage(index)"
+                        >
+                            <IconX class="size-3" />
+                        </button>
+                    </div>
+                    <div
+                        v-else
+                        class="flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-foreground/20 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+                    >
+                        <button
+                            type="button"
+                            class="flex flex-col items-center gap-1"
+                            @click="openReferenceImagePicker(index)"
+                        >
+                            <IconPhoto class="size-5 text-foreground/40" />
+                            <span class="text-[10px] font-medium text-foreground/60">Select image</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Template (auto-determined) -->
         <div class="space-y-2">
             <Label class="text-sm font-bold">{{ $t('automations.config.generate_poster.template') }}</Label>
@@ -290,5 +424,8 @@ const currentTemplateLabel = computed(() =>
             <p class="mt-1 text-xs text-foreground/50">{{ $t('automations.config.generate_poster.prompt_template_hint') }}</p>
             <InputError :message="errors?.prompt_template" class="mt-1" />
         </div>
+
+        <!-- Hidden MediaPicker -->
+        <MediaPickerDialog ref="referenceImagePicker" @select="handleReferenceImageSelect" />
     </div>
 </template>

@@ -312,6 +312,10 @@ return [
             'use_brand_visuals' => 'استخدام العناصر المرئية للعلامة التجارية',
             'use_brand_visuals_hint' => 'وجّه صور الذكاء الاصطناعي بألوان علامتك التجارية وهويتها.',
             'account_summary' => '{1}حساب واحد|[2,10]:count حسابات|[11,*]:count حساب',
+            'reference_images' => 'صور المرجع',
+            'reference_images_hint' => 'أضف شعارات أو منتجات أو عناصر marca لتضمينها في تصميم الملصق.',
+            'poster_count_hint' => 'عدد ت variaciones de ملصقات المراد إنشاؤها.',
+            'template_auto_hint' => 'يتم اختيار القالب تلقائيًا بناءً على عدد الملصقات.',
         ],
         'delay' => [
             'duration' => 'المدة',

@@ -312,6 +312,10 @@ return [
             'use_brand_visuals' => 'Utiliser les visuels de la marque',
             'use_brand_visuals_hint' => 'Orientez les images de l\'IA avec les couleurs et l\'identité de votre marque.',
             'account_summary' => ':count compte|:count comptes',
+            'reference_images' => 'Images de référence',
+            'reference_images_hint' => 'Ajoutez des logos, produits ou éléments de marque à inclure dans le design de l\'affiche.',
+            'poster_count_hint' => 'Nombre de variations d\'affiches à générer.',
+            'template_auto_hint' => 'Le modèle est automatiquement sélectionné selon le nombre d\'affiches.',
         ],
         'delay' => [
             'duration' => 'Durée',

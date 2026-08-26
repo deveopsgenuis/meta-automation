@@ -312,6 +312,10 @@ return [
             'use_brand_visuals' => 'Use brand visuals',
             'use_brand_visuals_hint' => 'Steer AI images with your brand colors and identity.',
             'account_summary' => ':count account|:count accounts',
+            'reference_images' => 'Reference images',
+            'reference_images_hint' => 'Add brand assets, logos, or product images to include in the poster design.',
+            'poster_count_hint' => 'Number of poster variations to generate.',
+            'template_auto_hint' => 'Template is automatically selected based on poster count.',
         ],
         'delay' => [
             'duration' => 'Duration',

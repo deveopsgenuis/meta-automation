@@ -55,7 +55,24 @@ You MUST schedule your generated videos on dates and times that do NOT overlap w
 Be bold and creative — every video must sound distinctly like this brand, never generic. Vary the angle daily with a cohesive visual mood across the plan.
 
 Each video needs:
-1. video_description: Creative concept and storyboard description for the short video (8-15 seconds). Describe the visual sequence, text overlays, transitions, and call-to-action.
+1. video_description: A platform-optimized post description/caption for {{ $channel_platform }}, written for SEO/discovery and human engagement — not a shot list. Blend the brand identity (voice, tone, value proposition) with the specific story/concept of this video so it reads as native content for the platform, not a generic caption.
+
+   Adapt structure and style to the platform's SEO conventions:
+@if(strtolower($channel_platform) === 'instagram')
+   - Instagram: Hook in the first line (shows before "more" truncation). Conversational tone matching the brand voice. Weave in searchable keywords naturally (product/niche terms an interested user would search or that the algorithm indexes). End with a soft CTA (question, "link in bio", "save this", etc.). Emojis allowed if on-brand. Do NOT put hashtags here — those belong in post_hashtags.
+@elseif(strtolower($channel_platform) === 'tiktok')
+   - TikTok: Short, punchy, high-energy first line as the hook. Keyword-relevant phrasing for TikTok search (SEO on TikTok is search-driven, so include terms viewers would type). Casual tone, minimal formality, CTA to comment/follow/duet.
+@elseif(strtolower($channel_platform) === 'youtube') 
+   - YouTube Shorts: Front-load the primary keyword/topic in the first sentence (YouTube search weighs this heavily). Slightly more descriptive/informative tone than Instagram/TikTok. Include a clear value statement (what the viewer gets) and end with a CTA (subscribe, watch more, comment).
+@else
+   - {{ $channel_platform }}: Match this platform's typical caption length, tone, and discovery mechanics while keeping the brand voice consistent.
+@endif
+
+   The description must clearly reflect what happens in THIS specific video (not a generic brand blurb) — reference the visual hook, the human element/text animation, or the payoff/CTA shown in the video so the caption and video feel like one cohesive piece of content.
+
+2. video_prompt: Detailed prompt for AI video generation — separate from the caption above. Describe the exact visual content, camera movements, text overlays, timing, and mood. Write in English for the video model. Include specific details about what happens in each second of the video.
+@if($has_start_frame || $has_end_frame)   Explicitly reaffirm fidelity to the provided reference frame(s) in this prompt — describe the opening/closing seconds in terms that match the reference image directly.
+@endif
 2. video_prompt: Detailed prompt for AI video generation. Describe the exact visual content, camera movements, text overlays, timing, and mood. Write in English for the video model. Include specific details about what happens in each second of the video.
 @if($has_start_frame || $has_end_frame)   Explicitly reaffirm fidelity to the provided reference frame(s) in this prompt — describe the opening/closing seconds in terms that match the reference image directly.
 @endif
