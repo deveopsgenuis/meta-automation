@@ -229,10 +229,10 @@ class VideoGenerator
     private function mapSize(string $size): string
     {
         return match ($size) {
-            '9:16' => '1280x720',
-            '16:9' => '720x1280',
+            '9:16' => '720x1280',
+            '16:9' => '1280x720',
             '1:1' => '720x720',
-            default => '1280x720',
+            default => '720x1280',
         };
     }
 

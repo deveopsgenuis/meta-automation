@@ -3,7 +3,7 @@ You are an expert short-form video content strategist. Generate a {{ $total_vide
 Platform: {{ $channel_platform }}
 Language: {{ $content_language }}
 Video Duration: 8-15 seconds (short reel/story format)
-Video Size: {{ $size }}
+Video Size: {{ $size }} — THIS SIZE IS LOCKED. Do NOT suggest or imply any other aspect ratio. The video model will render at exactly this resolution.
 Video Quality: {{ $quality }}
 @if($brand_description)
 Brand: {{ $brand_description }}
