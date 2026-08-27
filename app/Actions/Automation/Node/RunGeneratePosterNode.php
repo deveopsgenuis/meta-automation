@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Laravel\Ai\Files\Base64Image;
 use Throwable;
 
 class RunGeneratePosterNode
@@ -438,6 +439,78 @@ class RunGeneratePosterNode
                 'url' => $dataUri,
             ],
         ];
+    }
+
+    /**
+     * Parse reference images into Base64Image attachments for the plan agent (vision).
+     *
+     * @param  array<int, string>  $referenceImages
+     * @return array<int, Base64Image>
+     */
+    private function parseReferenceImagesForAi(array $referenceImages): array
+    {
+        $attachments = [];
+
+        foreach ($referenceImages as $input) {
+            if (! is_string($input) || trim($input) === '') {
+                continue;
+            }
+
+            $input = trim($input);
+
+            if (Storage::exists($input) || Storage::disk('public')->exists($input)) {
+                $disk = Storage::exists($input) ? Storage::disk() : Storage::disk('public');
+                $bytes = $disk->get($input);
+                $mimeType = $disk->mimeType($input) ?: 'image/jpeg';
+                $base64 = base64_encode($bytes);
+                $attachments[] = Base64Image::fromBase64($base64, $mimeType);
+
+                continue;
+            }
+
+            if (Str::isUuid($input)) {
+                $media = Media::query()->find($input);
+                if ($media) {
+                    $disk = Storage::exists($media->path) ? Storage::disk() : (Storage::disk('public')->exists($media->path) ? Storage::disk('public') : null);
+                    if ($disk) {
+                        $bytes = $disk->get($media->path);
+                        $mimeType = $media->mime_type ?: ($disk->mimeType($media->path) ?: 'image/jpeg');
+                        $base64 = base64_encode($bytes);
+                        $attachments[] = Base64Image::fromBase64($base64, $mimeType);
+
+                        continue;
+                    }
+                }
+            }
+
+            if (str_starts_with($input, 'data:')) {
+                $parts = explode(',', $input, 2);
+                if (count($parts) === 2) {
+                    $metaParts = explode(';', $parts[0]);
+                    $mimeType = str_replace('data:', '', $metaParts[0]) ?: 'image/jpeg';
+                    $attachments[] = Base64Image::fromBase64($parts[1], $mimeType);
+                }
+
+                continue;
+            }
+
+            if (filter_var($input, FILTER_VALIDATE_URL)) {
+                try {
+                    $response = Http::timeout(30)->get($input);
+                    if ($response->successful()) {
+                        $mimeType = $response->header('Content-Type', 'image/jpeg');
+                        $base64 = base64_encode($response->body());
+                        $attachments[] = Base64Image::fromBase64($base64, $mimeType);
+                    }
+                } catch (Throwable) {
+                    Log::warning('RunGeneratePosterNode: failed to fetch reference image URL', [
+                        'url' => substr($input, 0, 100),
+                    ]);
+                }
+            }
+        }
+
+        return $attachments;
     }
 
     private function sizeToOrientation(string $posterSize): string
