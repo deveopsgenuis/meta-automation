@@ -46,6 +46,8 @@ class PosterGenerationPlan implements Agent, HasStructuredOutput
     public function schema(JsonSchema $schema): array
     {
         return [
+            'post_description' => $schema->string()->description('The social media caption or post text users will read. A short engaging paragraph (2-4 sentences) describing the post message in the brand voice. NOT a visual/image prompt — do not include layout, color, or typography instructions.')->required(),
+            'post_hashtags' => $schema->string()->description('Related post hashtags (e.g. #marketing #design). 3-6 relevant tags.')->required(),
             'visual_prompt' => $schema->string()->description('The detailed AI image generation prompt for the poster. Must describe a complete finished poster with text, layout, graphics, palette, typography, and composition.')->required(),
         ];
     }

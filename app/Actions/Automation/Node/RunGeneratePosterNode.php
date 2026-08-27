@@ -106,17 +106,22 @@ class RunGeneratePosterNode
                 : $prompt;
 
             try {
-                $visualPrompt = $this->generatePlan(
+                $plan = $this->generatePlan(
                     workspace: $workspace,
                     userPrompt: $posterPrompt,
                     posterSize: $posterSize,
                     referenceImages: $referenceImages,
                 );
 
+                $visualPrompt = $plan['visual_prompt'];
+                $postDescription = $plan['post_description'];
+                $postHashtags = $plan['post_hashtags'];
+
                 Log::info('RunGeneratePosterNode: plan generated', [
                     'run_id' => $run->id,
                     'poster_index' => $i,
                     'visual_prompt_length' => strlen($visualPrompt),
+                    'post_description_length' => strlen($postDescription),
                 ]);
 
                 $imagePath = $this->generatePosterImage($visualPrompt, $orientation, $referenceImages);
@@ -140,10 +145,12 @@ class RunGeneratePosterNode
                     ];
                 }
 
+                $fullContent = trim($postDescription."\n\n".$postHashtags);
+
                 if ($run->is_dry_run) {
                     $generatedPosts[] = [
                         'post_id' => null,
-                        'content' => $posterPrompt,
+                        'content' => $fullContent,
                         'visual_prompt' => $visualPrompt,
                         'dry_run' => true,
                         'poster_size' => $posterSize,
@@ -155,7 +162,7 @@ class RunGeneratePosterNode
                 $user = $this->resolveUser($run);
 
                 $post = CreatePost::execute($workspace, $user, [
-                    'content' => $posterPrompt,
+                    'content' => $fullContent,
                     'media' => $mediaItem ? [$mediaItem] : [],
                     'platforms' => $platforms,
                     'created_via' => CreatedVia::Automation,
@@ -169,7 +176,7 @@ class RunGeneratePosterNode
 
                 $generatedPosts[] = [
                     'post_id' => $post->id,
-                    'content' => $posterPrompt,
+                    'content' => $fullContent,
                     'visual_prompt' => $visualPrompt,
                     'poster_size' => $posterSize,
                     'post_url' => route('app.posts.show', $post->id),
@@ -210,7 +217,7 @@ class RunGeneratePosterNode
         string $userPrompt,
         string $posterSize,
         array $referenceImages = [],
-    ): string {
+    ): array {
         $agent = new PosterGenerationPlan(
             workspace: $workspace,
             userPrompt: $userPrompt,
@@ -231,7 +238,6 @@ class RunGeneratePosterNode
         );
 
         $structured = $response->structured ?? [];
-        $visualPrompt = (string) data_get($structured, 'visual_prompt', $userPrompt);
 
         RecordAiUsage::recordText(
             workspace: $workspace,
@@ -242,13 +248,21 @@ class RunGeneratePosterNode
             metadata: ['agent' => 'poster_generation_plan', 'source' => 'automation'],
         );
 
+        $result = [
+            'post_description' => (string) data_get($structured, 'post_description', $userPrompt),
+            'post_hashtags' => (string) data_get($structured, 'post_hashtags', ''),
+            'visual_prompt' => (string) data_get($structured, 'visual_prompt', $userPrompt),
+        ];
+
         Log::info('RunGeneratePosterNode: plan agent response', [
-            'visual_prompt_length' => strlen($visualPrompt),
+            'visual_prompt_length' => strlen($result['visual_prompt']),
+            'post_description_length' => strlen($result['post_description']),
+            'has_hashtags' => $result['post_hashtags'] !== '',
             'prompt_tokens' => $response->usage->promptTokens ?? null,
             'completion_tokens' => $response->usage->completionTokens ?? null,
         ]);
 
-        return $visualPrompt;
+        return $result;
     }
 
     private function generatePosterImage(string $prompt, string $orientation, array $referenceImages = []): ?string
