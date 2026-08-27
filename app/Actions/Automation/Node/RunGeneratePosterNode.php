@@ -20,8 +20,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Laravel\Ai\Files\Base64Image;
-use Laravel\Ai\Image;
 use Throwable;
 
 class RunGeneratePosterNode
@@ -120,24 +118,21 @@ class RunGeneratePosterNode
                     'visual_prompt_length' => strlen($visualPrompt),
                 ]);
 
-                $imageBytes = $this->generatePosterImage($visualPrompt, $orientation, $referenceImages);
+                $imagePath = $this->generatePosterImage($visualPrompt, $orientation, $referenceImages);
 
                 Log::info('RunGeneratePosterNode: image generation result', [
                     'run_id' => $run->id,
                     'poster_index' => $i,
-                    'image_generated' => $imageBytes !== null,
-                    'image_bytes' => $imageBytes !== null ? strlen($imageBytes) : 0,
+                    'image_generated' => $imagePath !== null,
+                    'image_path' => $imagePath,
                 ]);
 
                 $mediaItem = null;
-                if ($imageBytes !== null) {
-                    $path = 'posters/poster-'.Str::uuid().'.png';
-                    Storage::disk('public')->put($path, $imageBytes);
-
+                if ($imagePath !== null) {
                     $mediaItem = [
                         'id' => null,
-                        'path' => $path,
-                        'url' => Storage::disk('public')->url($path),
+                        'path' => $imagePath,
+                        'url' => Storage::disk('public')->url($imagePath),
                         'type' => 'image',
                         'mime_type' => 'image/png',
                         'source' => 'ai',
@@ -259,115 +254,40 @@ class RunGeneratePosterNode
     {
         $model = (string) config('ai.default_image_model');
 
-        Log::info('RunGeneratePosterNode: generating image', [
+        Log::info('RunGeneratePosterNode: generating image via OpenRouter', [
             'model' => $model,
             'orientation' => $orientation,
             'prompt_length' => strlen($prompt),
             'reference_images_count' => count($referenceImages),
         ]);
 
-        try {
-            $builder = Image::of($prompt)->quality('low')->timeout(180);
+        $effectivePrompt = $prompt;
 
-            $builder = match ($orientation) {
-                'portrait' => $builder->portrait(),
-                'landscape' => $builder->landscape(),
-                default => $builder->square(),
-            };
-
-            if ($referenceImages !== []) {
-                $parsedImages = $this->parseReferenceImagesForAi($referenceImages);
-                if ($parsedImages !== []) {
-                    $builder = $builder->attachments($parsedImages);
-                }
-            }
-
-            $image = $builder->generate(model: $model);
-            $bytes = (string) $image;
-
-            return $bytes !== '' ? $bytes : null;
-        } catch (Throwable $e) {
-            Log::warning('RunGeneratePosterNode: Laravel Ai image generation failed, trying OpenRouter fallback', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return $this->generateViaOpenRouter($prompt);
-        }
-    }
-
-    /**
-     * @param  array<int, string>  $referenceImages
-     * @return array<int, Base64Image>
-     */
-    private function parseReferenceImagesForAi(array $referenceImages): array
-    {
-        $attachments = [];
-
-        foreach ($referenceImages as $input) {
-            if (! is_string($input) || trim($input) === '') {
-                continue;
-            }
-
-            $input = trim($input);
-
-            if (Storage::exists($input) || Storage::disk('public')->exists($input)) {
-                $disk = Storage::exists($input) ? Storage::disk() : Storage::disk('public');
-                $bytes = $disk->get($input);
-                $mimeType = $disk->mimeType($input) ?: 'image/jpeg';
-                $base64 = base64_encode($bytes);
-                $attachments[] = Base64Image::fromBase64($base64, $mimeType);
-
-                continue;
-            }
-
-            if (Str::isUuid($input)) {
-                $media = Media::query()->find($input);
-                if ($media) {
-                    $disk = Storage::exists($media->path) ? Storage::disk() : (Storage::disk('public')->exists($media->path) ? Storage::disk('public') : null);
-                    if ($disk) {
-                        $bytes = $disk->get($media->path);
-                        $mimeType = $media->mime_type ?: ($disk->mimeType($media->path) ?: 'image/jpeg');
-                        $base64 = base64_encode($bytes);
-                        $attachments[] = Base64Image::fromBase64($base64, $mimeType);
-
-                        continue;
-                    }
-                }
-            }
-
-            if (str_starts_with($input, 'data:')) {
-                $parts = explode(',', $input, 2);
-                if (count($parts) === 2) {
-                    $metaParts = explode(';', $parts[0]);
-                    $mimeType = str_replace('data:', '', $metaParts[0]) ?: 'image/jpeg';
-                    $attachments[] = Base64Image::fromBase64($parts[1], $mimeType);
-                }
-
-                continue;
-            }
-
-            if (filter_var($input, FILTER_VALIDATE_URL)) {
-                try {
-                    $response = Http::timeout(30)->get($input);
-                    if ($response->successful()) {
-                        $mimeType = $response->header('Content-Type', 'image/jpeg');
-                        $base64 = base64_encode($response->body());
-                        $attachments[] = Base64Image::fromBase64($base64, $mimeType);
-                    }
-                } catch (Throwable) {
-                    Log::warning('RunGeneratePosterNode: failed to fetch reference image URL', [
-                        'url' => substr($input, 0, 100),
-                    ]);
-                }
-            }
+        if (count($referenceImages) > 0) {
+            $effectivePrompt = 'IMPORTANT: The reference image(s) attached are exact assets (logos, brand marks, product images, or media) that must appear in the poster exactly as provided - do not stylize, recolor, distort, or reinterpret them in any way. Composite them faithfully into the design as locked elements. '.$prompt;
         }
 
-        return $attachments;
-    }
+        $aspectRatio = match ($orientation) {
+            'portrait' => '2:3',
+            'landscape' => '3:2',
+            default => '1:1',
+        };
 
-    private function generateViaOpenRouter(string $prompt): ?string
-    {
-        $model = (string) config('ai.default_image_model');
+        $payload = array_filter([
+            'model' => $model,
+            'prompt' => $effectivePrompt,
+            'resolution' => '1K',
+            'aspect_ratio' => $aspectRatio,
+            'quality' => 'low',
+            'n' => 1,
+            'input_references' => $this->formatReferenceImages($referenceImages),
+        ], fn (mixed $value) => $value !== null && $value !== []);
+
+        Log::info('RunGeneratePosterNode: OpenRouter payload', [
+            'payload_keys' => array_keys($payload),
+            'has_references' => isset($payload['input_references']),
+            'reference_count' => isset($payload['input_references']) ? count($payload['input_references']) : 0,
+        ]);
 
         try {
             $response = Http::withHeaders([
@@ -381,13 +301,7 @@ class RunGeneratePosterNode
                 ->connectTimeout(30)
                 ->timeout(180)
                 ->retry(2, 1000)
-                ->post('https://openrouter.ai/api/v1/images', [
-                    'model' => $model,
-                    'prompt' => $prompt,
-                    'resolution' => '1K',
-                    'quality' => 'low',
-                    'n' => 1,
-                ]);
+                ->post('https://openrouter.ai/api/v1/images', $payload);
 
             if (! $response->successful()) {
                 Log::error('RunGeneratePosterNode: OpenRouter API error', [
@@ -402,6 +316,10 @@ class RunGeneratePosterNode
             $base64Image = (string) data_get($result, 'data.0.b64_json', '');
 
             if ($base64Image === '') {
+                Log::warning('RunGeneratePosterNode: no b64_json in OpenRouter response', [
+                    'response_keys' => is_array($result) ? array_keys($result) : [],
+                ]);
+
                 return null;
             }
 
@@ -411,14 +329,115 @@ class RunGeneratePosterNode
 
             $imageBytes = base64_decode($base64Image, true);
 
-            return $imageBytes !== false ? $imageBytes : null;
+            if ($imageBytes === false) {
+                Log::warning('RunGeneratePosterNode: failed to decode OpenRouter image');
+
+                return null;
+            }
+
+            $mediaType = (string) data_get($result, 'data.0.media_type', 'image/png');
+            $extension = match ($mediaType) {
+                'image/jpeg', 'image/jpg' => 'jpg',
+                'image/gif' => 'gif',
+                'image/webp' => 'webp',
+                default => 'png',
+            };
+            $path = 'posters/poster-'.Str::uuid().'.'.$extension;
+
+            Storage::disk('public')->put($path, $imageBytes);
+
+            Log::info('RunGeneratePosterNode: image saved', [
+                'path' => $path,
+                'media_type' => $mediaType,
+                'size' => strlen($imageBytes),
+            ]);
+
+            return $path;
         } catch (Throwable $e) {
-            Log::error('RunGeneratePosterNode: OpenRouter fallback failed', [
+            Log::error('RunGeneratePosterNode: OpenRouter image generation failed', [
                 'error' => $e->getMessage(),
             ]);
 
             return null;
         }
+    }
+
+    /**
+     * @param  array<int, string>  $referenceImages
+     * @return array<int, array{type: string, image_url: array{url: string}}>
+     */
+    private function formatReferenceImages(array $referenceImages): array
+    {
+        return array_values(array_filter(array_map(
+            fn (string $referenceImage) => $this->formatReferenceImage($referenceImage),
+            $referenceImages,
+        )));
+    }
+
+    /**
+     * @return array{type: string, image_url: array{url: string}}|null
+     */
+    private function formatReferenceImage(string $reference): ?array
+    {
+        $reference = trim($reference);
+
+        if ($reference === '') {
+            return null;
+        }
+
+        if (str_starts_with($reference, 'data:')) {
+            return $this->openRouterImageReference($reference);
+        }
+
+        if (Storage::exists($reference)) {
+            return $this->storedImageReference($reference, config('filesystems.default'));
+        }
+
+        if (Storage::disk('public')->exists($reference)) {
+            return $this->storedImageReference($reference, 'public');
+        }
+
+        if (Str::isUuid($reference)) {
+            $media = Media::query()->find($reference);
+
+            if ($media && Storage::exists($media->path)) {
+                return $this->storedImageReference($media->path, config('filesystems.default'), $media->mime_type);
+            }
+
+            if ($media && Storage::disk('public')->exists($media->path)) {
+                return $this->storedImageReference($media->path, 'public', $media->mime_type);
+            }
+        }
+
+        Log::warning('RunGeneratePosterNode: unable to format reference image', [
+            'reference_prefix' => substr($reference, 0, 50),
+        ]);
+
+        return null;
+    }
+
+    /**
+     * @return array{type: string, image_url: array{url: string}}
+     */
+    private function storedImageReference(string $path, string $disk, ?string $mimeType = null): array
+    {
+        $diskInstance = Storage::disk($disk);
+        $mimeType ??= $diskInstance->mimeType($path) ?: 'image/jpeg';
+
+        return $this->openRouterImageReference('data:'.$mimeType.';base64,'.base64_encode($diskInstance->get($path)));
+    }
+
+    /**
+     * @return array{type: string, image_url: array{url: string}}
+     */
+    private function openRouterImageReference(string $dataUri): array
+    {
+        return [
+            'type' => 'image_url',
+            'image_url' => [
+                'url' => $dataUri,
+            ],
+        ];
     }
 
     private function sizeToOrientation(string $posterSize): string
