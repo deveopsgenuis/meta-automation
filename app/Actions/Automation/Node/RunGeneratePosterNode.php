@@ -133,6 +133,15 @@ class RunGeneratePosterNode
                     'image_path' => $imagePath,
                 ]);
 
+                if ($imagePath !== null) {
+                    RecordAiUsage::recordImage(
+                        workspace: $workspace,
+                        provider: 'openrouter',
+                        model: (string) config('ai.default_image_model'),
+                        metadata: ['source' => 'automation', 'node' => 'generate_poster'],
+                    );
+                }
+
                 $mediaItem = null;
                 if ($imagePath !== null) {
                     $mediaItem = [
