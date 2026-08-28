@@ -16,6 +16,7 @@ use App\Models\SocialAccount;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\Ai\RecordAiUsage;
+use App\Services\Ai\UserAiCreditService;
 use App\Services\Automation\ExpressionResolver;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -119,6 +120,9 @@ class RunGeneratePosterNode
                 $postDescription = $plan['post_description'];
                 $postHashtags = $plan['post_hashtags'];
 
+                $user = $this->resolveUser($run);
+                UserAiCreditService::consumeUse($user);
+
                 Log::info('RunGeneratePosterNode: plan generated', [
                     'run_id' => $run->id,
                     'poster_index' => $i,
@@ -142,6 +146,7 @@ class RunGeneratePosterNode
                         model: (string) config('ai.default_image_model'),
                         metadata: ['source' => 'automation', 'node' => 'generate_poster'],
                     );
+                    UserAiCreditService::consumeImage($user);
                 }
 
                 $mediaItem = null;
@@ -179,8 +184,6 @@ class RunGeneratePosterNode
 
                     continue;
                 }
-
-                $user = $this->resolveUser($run);
 
                 $post = CreatePost::execute($workspace, $user, [
                     'content' => $fullContent,
