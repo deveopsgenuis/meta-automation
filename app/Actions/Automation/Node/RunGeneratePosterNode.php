@@ -7,6 +7,7 @@ namespace App\Actions\Automation\Node;
 use App\Actions\Post\CreatePost;
 use App\Ai\Agents\PosterGenerationPlan;
 use App\DataTransferObjects\Automation\NodeRunResult;
+use App\Enums\Media\Source;
 use App\Enums\Post\CreatedVia;
 use App\Enums\PostPlatform\ContentType;
 use App\Models\AutomationRun;
@@ -144,13 +145,23 @@ class RunGeneratePosterNode
 
                 $mediaItem = null;
                 if ($imagePath !== null) {
+                    $mimeType = Storage::disk('public')->mimeType($imagePath) ?: 'image/png';
+                    $mediaRecord = $workspace->addMediaFromStoredPath(
+                        storagePath: $imagePath,
+                        originalFilename: basename($imagePath),
+                        mimeType: $mimeType,
+                        size: Storage::disk('public')->size($imagePath),
+                        collection: 'ai-generated',
+                        meta: ['source' => Source::Ai->value],
+                    );
+
                     $mediaItem = [
-                        'id' => null,
-                        'path' => $imagePath,
-                        'url' => Storage::disk('public')->url($imagePath),
+                        'id' => $mediaRecord->id,
+                        'path' => $mediaRecord->path,
+                        'url' => Storage::disk('public')->url($mediaRecord->path),
                         'type' => 'image',
-                        'mime_type' => 'image/png',
-                        'source' => 'ai',
+                        'mime_type' => $mimeType,
+                        'source' => Source::Ai->value,
                     ];
                 }
 
