@@ -87,14 +87,15 @@ class RunGeneratePosterNode
                 continue;
             }
 
+            $account = $activeAccounts->get($accountId);
             $contentTypeValue = (string) data_get($entry, 'content_type', '');
             $contentType = $contentTypeValue !== ''
                 ? ContentType::tryFrom($contentTypeValue)
-                : ContentType::InstagramFeed;
+                : ContentType::defaultFor($account->platform);
 
             $platforms[] = [
                 'social_account_id' => $accountId,
-                'content_type' => ($contentType ?? ContentType::InstagramFeed)->value,
+                'content_type' => ($contentType ?? ContentType::defaultFor($account->platform))->value,
                 'meta' => data_get($entry, 'meta', []),
             ];
         }
